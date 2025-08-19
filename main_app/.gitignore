@@ -1,0 +1,15 @@
+
+.env
+node_modules
+dist
+coverage
+.vscode
+.DS_Store
+*.log
+*.env.local
+*.env.development.local
+/lib/generated/prisma
+.next
+out
+build
+*.tsbuildinfos

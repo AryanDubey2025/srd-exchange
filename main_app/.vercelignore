@@ -1,0 +1,8 @@
+../contracts/
+../artifacts/
+../cache/
+../test/
+../scripts/
+node_modules/
+.env*
+.next/
