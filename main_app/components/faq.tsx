@@ -2,6 +2,7 @@
 
 import { Headset } from 'lucide-react'
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface FAQItem {
   question: string
@@ -43,64 +44,117 @@ export default function FAQ() {
   }
 
   return (
-    <section className="bg-black text-white py-8 px-8 min-h-screen flex flex-col justify-center">
+    <motion.section 
+      className="bg-black text-white py-8 px-8 min-h-screen flex flex-col justify-center"
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      transition={{ duration: 0.8 }}
+      viewport={{ once: true }}
+    >
       <div className="max-w-4xl mx-auto w-full">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold mb-2">
+        <motion.div 
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: -30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+        >
+          <motion.h2 
+            className="text-2xl md:text-3xl font-bold mb-2"
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true }}
+          >
             Have Questions? We Have Answers.
-          </h2>
-        </div>
+          </motion.h2>
+        </motion.div>
 
         {/* FAQ Items */}
         <div className="space-y-2 mb-6">
           {faqData.map((faq, index) => (
-            <div key={index} className="border-b border-gray-700 overflow-hidden">
-              <button
+            <motion.div 
+              key={index} 
+              className="border-b border-gray-700 overflow-hidden"
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              viewport={{ once: true }}
+              whileHover={{ backgroundColor: "rgba(31, 41, 55, 0.3)" }}
+            >
+              <motion.button
                 onClick={() => toggleFAQ(index)}
                 className="w-full flex justify-between items-center py-4 text-left hover:bg-gray-900/50 transition-all duration-300 ease-in-out"
+                whileHover={{ x: 5 }}
+                transition={{ duration: 0.2 }}
               >
                 <span className="text-base md:text-lg font-medium pr-4">
                   {faq.question}
                 </span>
-                <span className={`
-                  text-xl flex-shrink-0 transition-all duration-500 ease-in-out transform
-                  ${openIndex === index ? 'rotate-45 text-gray-300' : 'rotate-0 text-gray-500'}
-                `}>
+                <motion.span 
+                  className={`
+                    text-xl flex-shrink-0 transition-all duration-500 ease-in-out transform
+                    ${openIndex === index ? 'rotate-45 text-gray-300' : 'rotate-0 text-gray-500'}
+                  `}
+                  animate={{ 
+                    rotate: openIndex === index ? 45 : 0,
+                    scale: openIndex === index ? 1.1 : 1
+                  }}
+                  transition={{ duration: 0.3 }}
+                >
                   +
-                </span>
-              </button>
+                </motion.span>
+              </motion.button>
               
-              <div className={`
-                overflow-hidden transition-all duration-500 ease-in-out
-                ${openIndex === index 
-                  ? 'max-h-96 opacity-100 pb-4' 
-                  : 'max-h-0 opacity-0 pb-0'
-                }
-              `}>
-                <div className={`
-                  transform transition-all duration-500 ease-in-out
-                  ${openIndex === index 
-                    ? 'translate-y-0 opacity-100' 
-                    : '-translate-y-2 opacity-0'
-                  }
-                `}>
-                  <div className="h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent mb-3 transition-opacity duration-300"></div>
-                  <p className="text-gray-400 text-sm md:text-base leading-relaxed">
-                    {faq.answer}
-                  </p>
-                </div>
-              </div>
-            </div>
+              <AnimatePresence>
+                {openIndex === index && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <motion.div
+                      initial={{ y: -10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -10, opacity: 0 }}
+                      transition={{ duration: 0.3, delay: 0.1 }}
+                      className="pb-4"
+                    >
+                      <div className="h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent mb-3 transition-opacity duration-300"></div>
+                      <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                        {faq.answer}
+                      </p>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           ))}
         </div>
 
         {/* Bottom Section */}
-        <div className="flex flex-col md:flex-row items-center justify-between pt-1 border-gray-700 gap-4">
-          <div className="flex items-center">
-            <div className="w-6 h-6 mr-3">
+        <motion.div 
+          className="flex flex-col md:flex-row items-center justify-between pt-1 border-gray-700 gap-4"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          viewport={{ once: true }}
+        >
+          <motion.div 
+            className="flex items-center"
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div 
+              className="w-6 h-6 mr-3"
+              whileHover={{ rotate: 360, scale: 1.2 }}
+              transition={{ duration: 0.5 }}
+            >
              <Headset/>
-            </div>
+            </motion.div>
             <div>
               <p className="text-sm text-gray-400">
                 If your question isn't answered here, reach out to our
@@ -109,14 +163,25 @@ export default function FAQ() {
                 Telegram community (24x7) <span className="text-gray-400">directly and we'll help <br /> you get sorted</span>
               </p>
             </div>
-          </div>
+          </motion.div>
           
-          <button className="bg-black hover:border-[#632dbfc6] border border-[#622DBF] text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center text-sm">
-          <img src="/telegram.svg" alt="" className='pr-2 w-6 h-6' />
+          <motion.button 
+            className="bg-black hover:border-[#632dbfc6] border border-[#622DBF] text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center text-sm"
+            whileHover={{ scale: 1.05, borderColor: "#8b5cf6" }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.img 
+              src="/telegram.svg" 
+              alt="" 
+              className='pr-2 w-6 h-6' 
+              whileHover={{ rotate: 360 }}
+              transition={{ duration: 0.5 }}
+            />
             Telegram community
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </div>
-    </section>
+    </motion.section>
   )
 }
