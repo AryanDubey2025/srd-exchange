@@ -142,7 +142,7 @@ export default function Navbar() {
                 transition={{ duration: 0.3 }}
               >
                 <motion.img 
-                  src="/telegram.svg" 
+                  src="/telegram.svg"
                   alt=""
                   whileHover={{ scale: 1.1 }}
                 />

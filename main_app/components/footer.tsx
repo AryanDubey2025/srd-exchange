@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 export default function Footer() {
   return (
     <motion.footer 
-      className="bg-black text-white border-gray-800"
+      className="bg-black text-white border-gray-800 mb-8"
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
