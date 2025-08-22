@@ -3,9 +3,12 @@
 import { Search } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
+import CancelOrderModal from "./modal/cancelOrder";
 
 export default function AdminLeftSide() {
   const [activeFilter, setActiveFilter] = useState("Pending");
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedOrderIndex, setSelectedOrderIndex] = useState<number | null>(null);
 
   const orders = [
     {
@@ -33,6 +36,25 @@ export default function AdminLeftSide() {
       currency: "UPI",
     },
   ];
+
+  const handleReject = (orderIndex: number) => {
+    setSelectedOrderIndex(orderIndex);
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancel = () => {
+    if (selectedOrderIndex !== null) {
+      // Handle order cancellation logic here
+      console.log(`Order ${orders[selectedOrderIndex].id} has been cancelled`);
+    }
+    setShowCancelModal(false);
+    setSelectedOrderIndex(null);
+  };
+
+  const handleCloseCancelModal = () => {
+    setShowCancelModal(false);
+    setSelectedOrderIndex(null);
+  };
 
   return (
     <div className="bg-[#141414] text-white h-full py-4 px-2 overflow-y-auto">
@@ -165,13 +187,23 @@ export default function AdminLeftSide() {
               <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-1 rounded-xs text-sm font-medium transition-all">
                 Accept
               </button>
-              <button className="bg-yellow-600 hover:bg-red-700 text-white px-6 py-1 rounded-xs text-sm font-medium transition-all">
+              <button 
+                onClick={() => handleReject(index)}
+                className="bg-yellow-600 hover:bg-red-700 text-white px-6 py-1 rounded-xs text-sm font-medium transition-all"
+              >
                 Reject
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Cancel Order Modal */}
+      <CancelOrderModal
+        isOpen={showCancelModal}
+        onClose={handleCloseCancelModal}
+        onConfirm={handleConfirmCancel}
+      />
     </div>
   );
 }

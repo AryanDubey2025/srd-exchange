@@ -27,7 +27,7 @@ export default function FeatureBento() {
 
   return (
     <motion.section 
-      className="bg-black text-white py-20 px-8"
+      className="bg-black text-white py-8 px-4 sm:py-6 sm:px-8"
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
@@ -36,14 +36,14 @@ export default function FeatureBento() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.div 
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-16"
           initial={{ opacity: 0, y: -30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
         >
           <motion.h2 
-            className="text-4xl md:text-5xl font-bold mb-6"
+            className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6"
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -53,7 +53,7 @@ export default function FeatureBento() {
             SRD Exchange?
           </motion.h2>
           <motion.p 
-            className="text-gray-400 max-w-3xl mx-auto leading-relaxed text-justify"
+            className="text-gray-400 max-w-3xl mx-auto leading-relaxed text-justify text-sm sm:text-base"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
@@ -365,14 +365,14 @@ export default function FeatureBento() {
 
         {/* Supported Blockchains Section */}
         <motion.div 
-          className="text-center mt-20"
+          className="text-center mt-12 sm:mt-20"
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           viewport={{ once: true }}
         >
           <motion.h2 
-            className="text-3xl md:text-4xl font-bold mb-6"
+            className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6"
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.3 }}
@@ -382,7 +382,7 @@ export default function FeatureBento() {
           </motion.h2>
           
           <motion.div 
-            className="mb-6"
+            className="mb-4 sm:mb-6"
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
@@ -398,7 +398,7 @@ export default function FeatureBento() {
           </motion.div>
           
           <motion.p 
-            className="text-gray-400 text-lg max-w-2xl mx-auto"
+            className="text-gray-400 text-sm sm:text-lg max-w-2xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
@@ -409,7 +409,7 @@ export default function FeatureBento() {
           </motion.p>
 
           <motion.button 
-            className="border border-[#622DBF] py-2 px-12 mt-10 rounded-md -rotate-4"
+            className="border border-[#622DBF] py-2 px-8 sm:px-12 mt-6 sm:mt-10 rounded-md -rotate-4 text-sm sm:text-base"
             initial={{ opacity: 0, rotate: -4, scale: 0.8 }}
             whileInView={{ opacity: 1, rotate: -4, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.6 }}

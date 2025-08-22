@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function LandingPage() {
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const iconVariants = {
     hidden: { opacity: 0, scale: 0 },
@@ -23,7 +35,6 @@ export default function LandingPage() {
     y: [-10, 10, -10],
     transition: {
       duration: 4,
-      
       repeat: Infinity,
       ease: "easeInOut" as const
     }
@@ -45,8 +56,7 @@ export default function LandingPage() {
         transition={{ duration: 2, delay: 0.3, ease: "easeOut" }}
       />
      
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-8 py-4">
-        {/* Main Heading */}
+      <div className="relative z-10 flex flex-col items-center min-h-screen px-8 py-4">
         <motion.div 
           className="text-center max-w-4xl mx-auto mb-6"
           initial={{ opacity: 0, y: -50 }}
@@ -54,7 +64,7 @@ export default function LandingPage() {
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
           <motion.h1 
-            className="text-4xl md:text-4xl lg:text-6xl font-bold leading-tight"
+            className="text-3xl md:text-4xl lg:text-6xl font-bold leading-tight"
             initial={{ opacity: 0, y: -30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -62,7 +72,7 @@ export default function LandingPage() {
             Unlock India's Easiest
           </motion.h1>
           <motion.div 
-            className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight"
+            className="text-3xl md:text-5xl lg:text-6xl font-bold leading-tight"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
@@ -89,13 +99,13 @@ export default function LandingPage() {
 
           {/* Subtitle */}
           <motion.p 
-            className="text-lg md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed"
+            className="pt-2 text-md md:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 1 }}
           >
             Trade USDT easily in India. Use UPI and Cash Deposit
-            <br />
+            
             with our secure P2P platform.
           </motion.p>
         </motion.div>
@@ -104,7 +114,7 @@ export default function LandingPage() {
         <div className="relative w-full max-w-3xl mx-auto mb-12">
           {/* Top Left Icon */}
           <motion.div 
-            className="absolute top-8 left-20 w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
+            className="absolute top-8 left-20 md:w-16 md:h-16 w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
             variants={iconVariants}
             initial="hidden"
             animate="visible"
@@ -120,7 +130,7 @@ export default function LandingPage() {
 
           {/* Top Right Icon */}
           <motion.div 
-            className="absolute top-8 right-20 w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
+            className="absolute top-8 right-20 md:w-16 md:h-16 w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
             variants={iconVariants}
             initial="hidden"
             animate="visible"
@@ -139,7 +149,7 @@ export default function LandingPage() {
 
           {/* Middle Left Icon */}
           <motion.div 
-            className="absolute top-1/2 left-8 transform -translate-y-1/2 w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
+            className="absolute top-1/2 md:left-8 transform -translate-y-1/2 md:w-16 md:h-16 h-8 w-8 rounded-xl flex items-center justify-center shadow-lg"
             variants={iconVariants}
             initial="hidden"
             animate="visible"
@@ -158,7 +168,7 @@ export default function LandingPage() {
 
           {/* Middle Right Icon */}
           <motion.div 
-            className="absolute top-1/2 right-8 transform -translate-y-1/2 w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
+            className="absolute top-1/2 right-8 transform -translate-y-1/2 md:w-16 md:h-16 w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
             variants={iconVariants}
             initial="hidden"
             animate="visible"
@@ -177,7 +187,7 @@ export default function LandingPage() {
 
           {/* Bottom Left Icon */}
           <motion.div 
-            className="absolute bottom-8 left-20 w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
+            className="absolute bottom-8 left-20 md:w-16 md:h-16 w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
             variants={iconVariants}
             initial="hidden"
             animate="visible"
@@ -196,7 +206,7 @@ export default function LandingPage() {
 
           {/* Bottom Right Icon */}
           <motion.div 
-            className="absolute bottom-8 right-20 w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
+            className="absolute bottom-8 right-20 md:w-16 md:h-16 w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
             variants={iconVariants}
             initial="hidden"
             animate="visible"
@@ -221,7 +231,7 @@ export default function LandingPage() {
             transition={{ duration: 1, delay: 0.8, type: "spring", stiffness: 260, damping: 20 }}
           >
             <motion.div 
-              className="w-96 h-96 flex items-center justify-center"
+              className="md:w-96 md:h-96 h-64 w-64 flex items-center justify-center"
               whileHover={{ scale: 1.05 }}
               transition={{ duration: 0.3 }}
             >
@@ -246,7 +256,7 @@ export default function LandingPage() {
         {/* Trade Now Button */}
         <motion.button
           onClick={() => setModalOpen(true)}
-          className="bg-[#622DBF] text-white text-xl font-semibold px-12 py-4 rounded-sm transition-all duration-200 flex items-center space-x-3 shadow-xl hover:shadow-purple-500/25 transform hover:scale-105"
+          className="bg-[#622DBF] text-white md:text-xl text-lg font-semibold md:px-12 md:py-4 px-6 py-2 rounded-sm transition-all duration-200 flex items-center space-x-3 shadow-xl hover:shadow-purple-500/25 transform hover:scale-105"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 2.4 }}

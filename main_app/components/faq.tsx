@@ -1,7 +1,7 @@
 "use client"
 
 import { Headset } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface FAQItem {
@@ -38,6 +38,18 @@ const faqData: FAQItem[] = [
 
 export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const toggleFAQ = (index: number) => {
     setOpenIndex(openIndex === index ? null : index)
@@ -45,7 +57,7 @@ export default function FAQ() {
 
   return (
     <motion.section 
-      className="bg-black text-white py-8 px-8 min-h-screen flex flex-col justify-center"
+      className="bg-black text-white py-8 px-4 md:px-8 min-h-screen flex flex-col justify-center"
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
@@ -81,12 +93,12 @@ export default function FAQ() {
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               viewport={{ once: true }}
-              whileHover={{ backgroundColor: "rgba(31, 41, 55, 0.3)" }}
+              whileHover={!isMobile ? { backgroundColor: "rgba(31, 41, 55, 0.3)" } : {}}
             >
               <motion.button
                 onClick={() => toggleFAQ(index)}
                 className="w-full flex justify-between items-center py-4 text-left hover:bg-gray-900/50 transition-all duration-300 ease-in-out"
-                whileHover={{ x: 5 }}
+                whileHover={!isMobile ? { x: 5 } : {}}
                 transition={{ duration: 0.2 }}
               >
                 <span className="text-base md:text-lg font-medium pr-4">
@@ -137,51 +149,149 @@ export default function FAQ() {
 
         {/* Bottom Section */}
         <motion.div 
-          className="flex flex-col md:flex-row items-center justify-between pt-1 border-gray-700 gap-4"
+          className="flex items-center justify-between pt-1 border-gray-700 gap-4"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
           viewport={{ once: true }}
         >
           <motion.div 
-            className="flex items-center"
-            whileHover={{ scale: 1.02 }}
+            className="flex items-center flex-1"
+            whileHover={!isMobile ? { scale: 1.02 } : {}}
             transition={{ duration: 0.2 }}
           >
             <motion.div 
-              className="w-6 h-6 mr-3"
-              whileHover={{ rotate: 360, scale: 1.2 }}
+              className="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3 flex-shrink-0"
+              whileHover={!isMobile ? { rotate: 360, scale: 1.2 } : {}}
               transition={{ duration: 0.5 }}
             >
-             <Headset/>
+             <Headset className="w-full h-full"/>
             </motion.div>
             <div>
-              <p className="text-sm text-gray-400">
-                If your question isn't answered here, reach out to our
-              </p>
-              <p className="text-[#622DBF] font-medium text-sm">
-                Telegram community (24x7) <span className="text-gray-400">directly and we'll help <br /> you get sorted</span>
-              </p>
+              {/* Mobile Text - Shorter */}
+              <div className="block md:hidden">
+                <p className="text-xs text-gray-400">
+                  Questions? Reach out to our
+                </p>
+                <p className="text-[#622DBF] font-medium text-xs">
+                  Telegram community (24x7) <span className="text-gray-400">for help</span>
+                </p>
+              </div>
+              
+              {/* Desktop Text - Full */}
+              <div className="hidden md:block">
+                <p className="text-sm text-gray-400">
+                  If your question isn't answered here, reach out to our
+                </p>
+                <p className="text-[#622DBF] font-medium text-sm">
+                  Telegram community (24x7) <span className="text-gray-400">directly and we'll help <br /> you get sorted</span>
+                </p>
+              </div>
             </div>
           </motion.div>
           
           <motion.button 
-            className="bg-black hover:border-[#632dbfc6] border border-[#622DBF] text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center text-sm"
-            whileHover={{ scale: 1.05, borderColor: "#8b5cf6" }}
+            className="bg-black hover:border-[#632dbfc6] border border-[#622DBF] text-white px-3 py-1.5 md:px-4 md:py-2 rounded-md transition-colors duration-200 flex items-center text-xs md:text-sm flex-shrink-0"
+            whileHover={!isMobile ? { scale: 1.05, borderColor: "#8b5cf6" } : {}}
             whileTap={{ scale: 0.95 }}
             transition={{ duration: 0.2 }}
           >
             <motion.img 
               src="/telegram.svg" 
               alt="" 
-              className='pr-2 w-6 h-6' 
-              whileHover={{ rotate: 360 }}
+              className='pr-1.5 md:pr-2 w-4 h-4 md:w-6 md:h-6' 
+              whileHover={!isMobile ? { rotate: 360 } : {}}
               transition={{ duration: 0.5 }}
             />
-            Telegram community
+            <span className="text-xs md:text-sm">Telegram community</span>
           </motion.button>
         </motion.div>
       </div>
     </motion.section>
+  )
+}
+
+export function Footer() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return (
+    <motion.footer 
+      className="bg-black text-white border-gray-800"
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+      viewport={{ once: true }}
+    >
+      <div className="max-w-7xl mx-auto px-8 py-12 bg-[#0C0C0C] rounded-xl">
+        <div className="flex flex-col items-center justify-center text-center space-y-6">
+          
+          {/* Logo - Large Size */}
+          <motion.div 
+            className="flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.5 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            viewport={{ once: true }}
+          >
+            <motion.img 
+              src="/logo.svg" 
+              alt="SRD Exchange Logo" 
+              className="w-20 h-20 md:w-24 md:h-24"
+              whileHover={!isMobile ? { scale: 1.1, rotate: 5 } : { scale: 1.05 }}
+              transition={{ duration: 0.3 }}
+            />
+          </motion.div>
+
+          {/* Telegram Button */}
+          <motion.button 
+            className="text-white border border-[#622DBF] px-6 py-3 md:px-8 md:py-4 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm md:text-base"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            viewport={{ once: true }}
+            whileHover={!isMobile ? { scale: 1.05, borderColor: "#8b5cf6" } : {}}
+            whileTap={{ scale: 0.95 }}
+          >
+            <motion.img 
+              src="/telegram.svg" 
+              alt="" 
+              className="w-5 h-5 md:w-6 md:h-6"
+              whileHover={!isMobile ? { rotate: 360 } : {}}
+              transition={{ duration: 0.5 }}
+            />
+            <span>Telegram community</span>
+          </motion.button>
+
+          {/* 24x7 Support Text */}
+          <motion.div 
+            className="flex items-center justify-center gap-2"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <motion.div
+              whileHover={!isMobile ? { scale: 1.2, rotate: 15 } : {}}
+              transition={{ duration: 0.2 }}
+            >
+              <Headset className="w-4 h-4 md:w-5 md:h-5"/>
+            </motion.div>
+            <span className="text-gray-400 text-sm md:text-base">24 x 7 Support</span>
+          </motion.div>
+
+        </div>
+      </div>
+    </motion.footer>
   )
 }
