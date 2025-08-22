@@ -7,9 +7,6 @@ import {
   TriangleAlert,
   CreditCard,
   Clock,
-  Upload,
-  FileText,
-  File,
   Check,
   CheckCheck,
   CircleQuestionMark,
@@ -102,7 +99,13 @@ export default function BuyUPIModal({
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-[#2F2F2F]">
               <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                <div className={`w-3 h-3 rounded-full ${
+                  isCoinReceived 
+                    ? 'bg-gray-400' 
+                    : isPaid 
+                    ? 'bg-green-400' 
+                    : 'bg-yellow-400'
+                }`}></div>
                 <span className="text-white font-medium">Order 14</span>
               </div>
               
