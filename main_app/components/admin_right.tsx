@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { User, FileText } from 'lucide-react'
+import { User, FileText, Copy } from 'lucide-react'
 
 export default function AdminRight() {
   const [activeTab, setActiveTab] = useState('UPI')
@@ -98,7 +98,7 @@ export default function AdminRight() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <User className="w-5 h-5 text-white" />
-            <span className="text-white text-sm">0xA78B65-E91b2a2 (1)</span>
+            <span className="text-white text-sm">0xA78B65-E91b2a2 <Copy/></span>
           </div>
           <button className="bg-yellow-600 hover:bg-yellow-700 text-black px-4 py-1 rounded text-sm font-medium transition-all">
             BAN
