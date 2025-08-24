@@ -3,9 +3,12 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { User } from 'lucide-react'
+import CancelOrderModal from './modal/cancelOrder'
 
 export default function AdminCenter() {
   const [orderStatuses, setOrderStatuses] = useState<{[key: string]: {[key: string]: 'waiting' | 'completed'}}>({})
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [selectedOrderIndex, setSelectedOrderIndex] = useState<number | null>(null)
 
   const orders = [
     {
@@ -77,6 +80,33 @@ export default function AdminCenter() {
         }
       }
     })
+  }
+
+  const handleAcceptedDoubleClick = (orderIndex: number) => {
+    setSelectedOrderIndex(orderIndex)
+    setShowCancelModal(true)
+  }
+
+  const handleCancelOrder = () => {
+    if (selectedOrderIndex !== null) {
+      // Here you can add logic to actually cancel the order
+      console.log(`Cancelling order at index ${selectedOrderIndex}`)
+      
+      // Reset the order status for the cancelled order
+      setOrderStatuses(prev => {
+        const newStatuses = { ...prev }
+        delete newStatuses[selectedOrderIndex]
+        return newStatuses
+      })
+    }
+    
+    setShowCancelModal(false)
+    setSelectedOrderIndex(null)
+  }
+
+  const handleCloseCancelModal = () => {
+    setShowCancelModal(false)
+    setSelectedOrderIndex(null)
   }
 
   const getButtonStatus = (orderIndex: number, tag: string) => {
@@ -218,7 +248,14 @@ export default function AdminCenter() {
                 <button
                   key={tagIndex}
                   onClick={() => handleButtonClick(index, tag)}
-                  className={`px-3 py-1 rounded-xs text-xs font-medium flex items-center space-x-1 transition-all hover:opacity-80 cursor-pointer ${getTagColor(tag, index)}`}
+                  onDoubleClick={() => {
+                    if (tag === 'Accepted') {
+                      handleAcceptedDoubleClick(index)
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-xs text-xs font-medium flex items-center space-x-1 transition-all hover:opacity-80 cursor-pointer ${getTagColor(tag, index)} ${
+                    tag === 'Accepted' ? 'hover:bg-red-600' : ''
+                  }`}
                 >
                   {hasUserIcon(tag, index) && (
                     <User className="w-3 h-3" />
@@ -230,6 +267,13 @@ export default function AdminCenter() {
           </div>
         ))}
       </div>
+
+      {/* Cancel Order Modal */}
+      <CancelOrderModal
+        isOpen={showCancelModal}
+        onClose={handleCloseCancelModal}
+        onConfirm={handleCancelOrder}
+      />
     </div>
   )
 }

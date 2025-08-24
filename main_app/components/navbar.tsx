@@ -52,10 +52,7 @@ export default function Navbar() {
             transition={{ duration: 0.5, delay: 0.2 }}
             whileHover={{ scale: 1.05 }}
           >
-            <motion.div
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.5 }}
-            >
+            <div>
               <Image
                 src="/logo.svg"
                 alt="SRD Exchange Logo"
@@ -63,7 +60,7 @@ export default function Navbar() {
                 height={44}
                 className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
               />
-            </motion.div>
+            </div>
             <motion.span 
               className="pt-4 text-lg sm:text-2xl font-bold tracking-tight font-montserrat"
               initial={{ opacity: 0 }}

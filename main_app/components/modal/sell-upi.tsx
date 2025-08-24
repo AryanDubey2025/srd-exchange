@@ -164,6 +164,11 @@ export default function SellUPIModal({
                     <div className="text-white text-sm font-medium">
                       14 : 34 Left
                     </div>
+                    {isMoneyReceived && (
+                      <div className="text-white text-sm font-medium mt-1">
+                        Money has been paid please check and confirm
+                      </div>
+                    )}
                   </div>
                 )}
 

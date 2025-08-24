@@ -87,17 +87,21 @@ export default function BuySellSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="text-center">
+              <div className="flex justify-center items-center space-x-2 sm:space-x-3 mb-3">
                 <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center">
                   <User className="w-4 h-4 sm:w-5 sm:h-5"/>
                 </div>
                 <span className="text-xs sm:text-sm text-white font-medium truncate">0xA78B65-E91b2a2</span>
                 <Copy className='w-3 h-3 sm:w-4 sm:h-4'/>
               </div>
-              <div className="text-right">
-                <div className="text-xs text-white mb-1">Balance</div>
-                <div className="text-lg sm:text-xl font-bold text-white">20 USD <span className='text-green-700 text-lg sm:text-xl -ml-1'>T</span></div>
+              <div className="text-center">
+                <div className="text-xs text-white mb-1">Available Balance</div>
+                <div className="text-lg sm:text-xl font-bold text-white">20 USDT</div>
+                <div className="text-xs text-gray-400 mt-1 flex items-center justify-center space-x-1">
+                  <span>≈</span>
+                  <span>₹{(20 * buyPrice).toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </motion.div>

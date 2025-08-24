@@ -16,7 +16,7 @@ export default function SimpleNav() {
             className="w-9 h-9 object-contain"
           />
           <span className="text-xl font-medium tracking-tight">
-            srd Exchange
+            SRD Exchange
           </span>
         </div>
 

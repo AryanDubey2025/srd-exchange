@@ -113,13 +113,13 @@ export default function BuyCDMModal({
                 <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
                 <span className="text-white font-medium">Order 14</span>
               </div>
-              
+
               {/* Desktop - Centered "How to buy" */}
               <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 space-x-1 justify-center items-center text-white text-sm">
                 <CircleQuestionMark className="w-5 h-5" />
                 <span>How to buy?</span>
               </div>
-              
+
               {/* Close button */}
               <button
                 onClick={onClose}
@@ -344,6 +344,11 @@ export default function BuyCDMModal({
                   <div className="text-white text-sm font-medium">
                     14 : 34 Left
                   </div>
+                  {isOrderComplete && (
+                    <div className="text-white text-sm font-medium mt-1">
+                      Money has been paid please check and confirm
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Button - Always Purple */}
