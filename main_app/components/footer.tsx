@@ -41,7 +41,7 @@ export default function Footer() {
               viewport={{ once: true }}
             >
               <motion.img 
-                src="/logo.svg" 
+                src="/srd_final.svg" 
                 alt="SRD Exchange Logo" 
                 className="w-20 h-20"
                 whileHover={{ scale: 1.05 }}
@@ -92,9 +92,9 @@ export default function Footer() {
             viewport={{ once: true }}
           >
             <motion.img 
-              src="/logo.svg" 
+              src="/srd_final.svg" 
               alt="SRD Exchange Logo" 
-              className="w-12 h-12"
+              className="w-32 h-32"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ duration: 0.3 }}
             />
