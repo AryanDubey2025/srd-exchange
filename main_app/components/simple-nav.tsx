@@ -15,7 +15,7 @@ export default function SimpleNav() {
             height={20}
             className="w-20 h-20 object-contain"
           />
-          <span className="text-xl font-medium tracking-tight hidden md:flex md:flex-row">
+          <span className="text-xl font-bold  tracking-tight hidden md:flex md:flex-row">
             SRD Exchange
           </span>
         </div>
