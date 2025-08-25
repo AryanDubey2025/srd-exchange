@@ -12,6 +12,7 @@ import {
   CircleQuestionMark,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { on } from "events";
 
 interface SellCDMModalProps {
   isOpen: boolean;
@@ -164,11 +165,19 @@ export default function SellCDMModal({
                     <div className="text-white text-sm font-medium">
                       14 : 34 Left
                     </div>
-                    {isMoneyReceived && (
-                      <div className="text-white text-sm font-medium mt-1">
-                        Money has been paid please check and confirm
-                      </div>
-                    )}
+                  </div>
+                )}
+
+                {/* Show progress bar and message when order is complete */}
+                {isMoneyReceived && (
+                  <div className="flex flex-col items-center mb-8">
+                    <div className="w-60 md:w-80 bg-gray-700 rounded-full h-2 mb-2">
+                      <div className="bg-[#622DBF] h-2 rounded-full w-full"></div>
+                    </div>
+          
+                    <div className="text-white text-sm font-medium mt-1">
+                      Money paid to account please check and confirm
+                    </div>
                   </div>
                 )}
 
@@ -177,17 +186,12 @@ export default function SellCDMModal({
                   <button
                     onClick={
                       isMoneyReceived
-                        ? undefined
+                        ? onClose 
                         : isWaitingConfirmation
                         ? handleMoneyReceived
                         : handleWaitingConfirmation
                     }
-                    disabled={isMoneyReceived}
-                    className={`w-full py-3 rounded-lg font-bold text-white transition-all bg-[#622DBF] ${
-                      isMoneyReceived
-                        ? "cursor-not-allowed opacity-80"
-                        : "hover:bg-purple-700"
-                    }`}
+                    className="w-full py-3 rounded-lg font-bold text-white transition-all bg-[#622DBF] hover:bg-purple-700"
                   >
                     <div className="flex items-center justify-center space-x-2">
                       {isMoneyReceived ? (

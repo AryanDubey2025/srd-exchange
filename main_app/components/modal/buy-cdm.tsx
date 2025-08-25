@@ -356,19 +356,14 @@ export default function BuyCDMModal({
                   <button
                     onClick={
                       isOrderComplete
-                        ? undefined
+                        ? onClose 
                         : isUploadComplete
                         ? handleCoinReceived
                         : isWaitingConfirmation || isPaid
                         ? handleUploadDetails
                         : handlePaymentConfirm
                     }
-                    disabled={isOrderComplete}
-                    className={`w-full py-3 rounded-lg font-bold text-white transition-all bg-[#622DBF] ${
-                      isOrderComplete
-                        ? "cursor-not-allowed opacity-80"
-                        : "hover:bg-purple-700"
-                    }`}
+                    className="w-full py-3 rounded-lg font-bold text-white transition-all bg-[#622DBF] hover:bg-purple-700"
                   >
                     <div className="flex items-center justify-center space-x-2">
                       {isOrderComplete ? (

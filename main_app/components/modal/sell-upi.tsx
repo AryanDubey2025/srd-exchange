@@ -1,16 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  X,
-  Copy,
-  TriangleAlert,
-  CreditCard,
-  Clock,
-  Check,
-  CheckCheck,
-  CircleQuestionMark,
-} from "lucide-react";
+import { X, Clock, Check, CheckCheck, CircleQuestionMark } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface SellUPIModalProps {
@@ -88,22 +79,24 @@ export default function SellUPIModal({
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-[#2F2F2F]">
               <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${
-                  isMoneyReceived 
-                    ? 'bg-gray-400' 
-                    : isWaitingConfirmation 
-                    ? 'bg-green-400' 
-                    : 'bg-yellow-400'
-                }`}></div>
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    isMoneyReceived
+                      ? "bg-gray-400"
+                      : isWaitingConfirmation
+                      ? "bg-green-400"
+                      : "bg-yellow-400"
+                  }`}
+                ></div>
                 <span className="text-white font-medium">Order 14</span>
               </div>
-              
+
               {/* Desktop - Centered "How to sell" */}
               <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 space-x-1 justify-center items-center text-white text-sm">
                 <CircleQuestionMark className="w-5 h-5" />
                 <span>How to sell?</span>
               </div>
-              
+
               {/* Close button */}
               <button
                 onClick={onClose}
@@ -136,15 +129,13 @@ export default function SellUPIModal({
                       />
                     </svg>
                   </div>
-                  <div className="text-xs text-white mt-2 mb-4">
-                    {amount}₹
-                  </div>
+                  <div className="text-xs text-white mt-2 mb-4">{amount}₹</div>
                 </div>
 
                 {/* Payment Method Badge */}
                 <div className="flex items-center justify-center space-x-4 md:space-x-10 mb-6 flex-wrap gap-2">
                   <div className="bg-[#1D1C1C] text-black px-2 py-1 rounded text-sm font-medium flex items-center space-x-2">
-                    <img src="/phonepay-gpay.svg" alt="" className="w-5 h-5"/>
+                    <img src="/phonepay-gpay.svg" alt="" className="w-5 h-5" />
                     <span className="text-white">UPI</span>
                   </div>
                   <span className="text-white px-2 py-1 bg-[#1D1C1C] rounded-md text-sm">
@@ -164,11 +155,18 @@ export default function SellUPIModal({
                     <div className="text-white text-sm font-medium">
                       14 : 34 Left
                     </div>
-                    {isMoneyReceived && (
-                      <div className="text-white text-sm font-medium mt-1">
-                        Money has been paid please check and confirm
-                      </div>
-                    )}
+                  </div>
+                )}
+
+                {isMoneyReceived && (
+                  <div className="flex flex-col items-center mb-8">
+                    <div className="w-60 md:w-80 bg-gray-700 rounded-full h-2 mb-2">
+                      <div className="bg-[#622DBF] h-2 rounded-full w-full"></div>
+                    </div>
+
+                    <div className="text-white text-sm font-medium mt-1">
+                      Money paid to account please check and confirm
+                    </div>
                   </div>
                 )}
 
@@ -177,17 +175,12 @@ export default function SellUPIModal({
                   <button
                     onClick={
                       isMoneyReceived
-                        ? undefined
+                        ? onClose 
                         : isWaitingConfirmation
                         ? handleMoneyReceived
                         : handleWaitingConfirmation
                     }
-                    disabled={isMoneyReceived}
-                    className={`w-full py-3 rounded-lg font-bold text-white transition-all bg-[#622DBF] ${
-                      isMoneyReceived
-                        ? "cursor-not-allowed opacity-80"
-                        : "hover:bg-purple-700"
-                    }`}
+                    className="w-full py-3 rounded-lg font-bold text-white transition-all bg-[#622DBF] hover:bg-purple-700"
                   >
                     <div className="flex items-center justify-center space-x-2">
                       {isMoneyReceived ? (
