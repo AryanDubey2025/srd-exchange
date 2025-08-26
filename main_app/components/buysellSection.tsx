@@ -1,8 +1,10 @@
 'use client'
 
-import { Copy, User } from 'lucide-react'
+import { Copy, User, ExternalLink, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useWalletManager } from '@/hooks/useWalletManager'
+import { useUserOrders } from '@/hooks/useUserOrders'
 import BuyCDMModal from './modal/buy-cdm'
 import BuyUPIModal from './modal/buy-upi'
 import SellUPIModal from './modal/sell-upi'
@@ -16,35 +18,61 @@ export default function BuySellSection() {
   const [showBuyUPIModal, setShowBuyUPIModal] = useState(false)
   const [showSellUPIModal, setShowSellUPIModal] = useState(false)
   const [showSellCDMModal, setShowSellCDMModal] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  // Wallet and orders data
+  const { 
+    address, 
+    isConnected, 
+    walletData, 
+    isLoading: walletLoading, 
+    refetchBalances 
+  } = useWalletManager()
+  
+  const { 
+    orders, 
+    isLoading: ordersLoading, 
+    refetch: refetchOrders 
+  } = useUserOrders()
 
   // Buy and Sell prices from the display
   const buyPrice = 85.6
   const sellPrice = 85.6
 
-  //  USDT amount based on rupee input (for buy)
+  // Helper functions
   const calculateUSDT = (rupeeAmount: string) => {
     const numericAmount = parseFloat(rupeeAmount)
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      return '0'
-    }
+    if (isNaN(numericAmount) || numericAmount <= 0) return '0'
     const usdtAmount = numericAmount / buyPrice
     return usdtAmount.toFixed(2)
   }
 
-  //  Rupee amount based on USDT input (for sell)
   const calculateRupee = (usdtAmount: string) => {
     const numericAmount = parseFloat(usdtAmount)
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      return '0'
-    }
+    if (isNaN(numericAmount) || numericAmount <= 0) return '0'
     const rupeeAmount = numericAmount * sellPrice
     return rupeeAmount.toFixed(2)
+  }
+
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 8)}...${addr.slice(-6)}`
+  }
+
+  const handleCopyAddress = async () => {
+    if (address) {
+      await navigator.clipboard.writeText(address)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleRefresh = async () => {
+    await Promise.all([refetchBalances(), refetchOrders()])
   }
 
   const usdtAmount = calculateUSDT(amount)
   const rupeeAmount = calculateRupee(amount)
 
-  // Get payment method display name
   const getPaymentMethodName = () => {
     switch(paymentMethod) {
       case 'upi': return 'UPI'
@@ -53,14 +81,12 @@ export default function BuySellSection() {
     }
   }
 
-  // Reset payment method when switching tabs
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
     setPaymentMethod('')
     setAmount('')
   }
 
-  // Handle buy/sell button click
   const handleBuySellClick = () => {
     if (activeTab === 'buy' && paymentMethod === 'cdm') {
       setShowBuyCDMModal(true)
@@ -70,9 +96,6 @@ export default function BuySellSection() {
       setShowSellUPIModal(true)
     } else if (activeTab === 'sell' && paymentMethod === 'cdm') {
       setShowSellCDMModal(true)
-    } else {
-      // Handle other payment methods
-      console.log(`${activeTab} with ${paymentMethod}`)
     }
   }
 
@@ -80,30 +103,134 @@ export default function BuySellSection() {
     <>
       <div className="bg-black text-white h-full flex items-center justify-center p-4 sm:p-8 max-w-4xl mx-auto">
         <div className="w-full space-y-4">
-          {/* Wallet Balance Card */}
+          {/* Enhanced Wallet Balance Card */}
           <motion.div 
-            className="bg-[#101010] max-w-md border border-[#3E3E3E] rounded-md p-3 mx-auto"
+            className="bg-[#101010] max-w-md border border-[#3E3E3E] rounded-md p-4 mx-auto"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="text-center">
-              <div className="flex justify-center items-center space-x-2 sm:space-x-3 mb-3">
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 sm:w-5 sm:h-5"/>
+            {isConnected && address ? (
+              <div className="space-y-3">
+                {/* Wallet Address */}
+                <div className="flex justify-center items-center space-x-2 mb-3">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#622DBF]/20 flex items-center justify-center">
+                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-[#622DBF]"/>
+                  </div>
+                  <span className="text-xs sm:text-sm text-white font-medium">
+                    {formatAddress(address)}
+                  </span>
+                  <button
+                    onClick={handleCopyAddress}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <Copy className='w-3 h-3 sm:w-4 sm:h-4'/>
+                  </button>
+                  <a
+                    href={`https://bscscan.com/address/${address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </a>
                 </div>
-                <span className="text-xs sm:text-sm text-white font-medium truncate">0xA78B65-E91b2a2</span>
-                <Copy className='w-3 h-3 sm:w-4 sm:h-4'/>
+
+                {copied && (
+                  <motion.div
+                    className="text-center text-green-400 text-xs"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                  >
+                    Address copied!
+                  </motion.div>
+                )}
+
+                {/* Balance Display */}
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-1">
+                    <span className="text-xs text-white">Available Balance</span>
+                    <button
+                      onClick={handleRefresh}
+                      disabled={walletLoading}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${walletLoading ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                  
+                  {walletLoading ? (
+                    <div className="text-lg sm:text-xl font-bold text-gray-400">
+                      Loading...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-lg sm:text-xl font-bold text-white">
+                        {walletData?.balances.usdt 
+                          ? `${parseFloat(walletData.balances.usdt.formatted).toFixed(2)} USDT`
+                          : '0.00 USDT'
+                        }
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1 flex items-center justify-center space-x-1">
+                        <span>≈</span>
+                        <span>
+                          ₹{walletData?.balances.usdt 
+                            ? (parseFloat(walletData.balances.usdt.formatted) * buyPrice).toFixed(2)
+                            : '0.00'
+                          }
+                        </span>
+                      </div>
+                      
+                      {/* BNB Gas Balance */}
+                      <div className="text-xs text-gray-500 mt-2">
+                        Gas: {walletData?.balances.bnb 
+                          ? `${parseFloat(walletData.balances.bnb.formatted).toFixed(4)} BNB`
+                          : '0.0000 BNB'
+                        }
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Quick Stats */}
+                <div className="flex justify-between text-center pt-3 border-t border-gray-700">
+                  <div>
+                    <div className="text-xs text-gray-400">Total Orders</div>
+                    <div className="text-sm font-medium text-white">
+                      {ordersLoading ? '...' : orders.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Completed</div>
+                    <div className="text-sm font-medium text-green-400">
+                      {ordersLoading ? '...' : orders.filter(o => o.status === 'COMPLETED').length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Pending</div>
+                    <div className="text-sm font-medium text-yellow-400">
+                      {ordersLoading ? '...' : orders.filter(o => ['PENDING', 'ADMIN_APPROVED', 'PAYMENT_SUBMITTED'].includes(o.status)).length}
+                    </div>
+                  </div>
+                </div>
               </div>
+            ) : (
               <div className="text-center">
-                <div className="text-xs text-white mb-1">Available Balance</div>
-                <div className="text-lg sm:text-xl font-bold text-white">20 USDT</div>
-                <div className="text-xs text-gray-400 mt-1 flex items-center justify-center space-x-1">
-                  <span>≈</span>
-                  <span>₹{(20 * buyPrice).toFixed(2)}</span>
+                <div className="flex justify-center items-center space-x-2 sm:space-x-3 mb-3">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 sm:w-5 sm:h-5"/>
+                  </div>
+                  <span className="text-xs sm:text-sm text-gray-400 font-medium">
+                    Connect wallet to view balance
+                  </span>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-gray-400 mb-1">Available Balance</div>
+                  <div className="text-lg sm:text-xl font-bold text-gray-500">-- USDT</div>
                 </div>
               </div>
-            </div>
+            )}
           </motion.div>
 
           {/* Price Display - Centered */}
@@ -323,15 +450,19 @@ export default function BuySellSection() {
             {activeTab && paymentMethod && (
               <motion.button 
                 onClick={handleBuySellClick}
-                className="w-full bg-[#622DBF] hover:bg-purple-700 text-white py-4 sm:py-5 px-6 rounded-xl font-bold text-lg sm:text-xl transition-all shadow-lg shadow-purple-600/25 hover:shadow-purple-600/40"
+                disabled={!isConnected}
+                className="w-full bg-[#622DBF] hover:bg-purple-700 text-white py-4 sm:py-5 px-6 rounded-xl font-bold text-lg sm:text-xl transition-all shadow-lg shadow-purple-600/25 hover:shadow-purple-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: isConnected ? 1.02 : 1 }}
+                whileTap={{ scale: isConnected ? 0.98 : 1 }}
                 transition={{ duration: 0.3 }}
               >
-                {activeTab === 'buy' ? 'Buy' : 'Sell'}
+                {!isConnected 
+                  ? 'Connect Wallet to Trade'
+                  : `${activeTab === 'buy' ? 'Buy' : 'Sell'}`
+                }
               </motion.button>
             )}
           </AnimatePresence>
@@ -368,7 +499,7 @@ export default function BuySellSection() {
         </div>
       </div>
 
-      {/* CDM Modal */}
+      {/* Modals */}
       <BuyCDMModal 
         isOpen={showBuyCDMModal}
         onClose={() => setShowBuyCDMModal(false)}
@@ -376,7 +507,6 @@ export default function BuySellSection() {
         usdtAmount={usdtAmount}
       />
 
-      {/* UPI Modal */}
       <BuyUPIModal 
         isOpen={showBuyUPIModal}
         onClose={() => setShowBuyUPIModal(false)}
@@ -384,7 +514,6 @@ export default function BuySellSection() {
         usdtAmount={usdtAmount}
       />
 
-      {/* Sell UPI Modal */}
       <SellUPIModal 
         isOpen={showSellUPIModal}
         onClose={() => setShowSellUPIModal(false)}
@@ -392,7 +521,6 @@ export default function BuySellSection() {
         amount={rupeeAmount}
       />
 
-      {/* Sell CDM Modal */}
       <SellCDMModal 
         isOpen={showSellCDMModal}
         onClose={() => setShowSellCDMModal(false)}

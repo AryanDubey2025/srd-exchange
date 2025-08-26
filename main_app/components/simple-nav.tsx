@@ -9,11 +9,11 @@ export default function SimpleNav() {
         {/* Logo Section - Left */}
         <div className="flex items-center space-x-3">
           <Image
-            src="/srd_final.svg"
+            src="/logo.svg"
             alt="SRD Exchange Logo"
             width={20}
             height={20}
-            className="w-20 h-20 object-contain"
+            className="w-10 h-10 object-contain"
           />
           <span className="text-xl font-bold  tracking-tight hidden md:flex md:flex-row">
             SRD Exchange

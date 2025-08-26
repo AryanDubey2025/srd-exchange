@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
-    const { walletAddress } = await request.json()
+    const { walletAddress, role = 'USER' } = await request.json()
 
     if (!walletAddress) {
       return NextResponse.json(
@@ -12,26 +12,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = await prisma.user.findUnique({
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
       where: {
         walletAddress: walletAddress.toLowerCase()
       }
     })
 
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'User already exists' },
+        { status: 409 }
+      )
+    }
+
+    // Create new user
+    const user = await prisma.user.create({
+      data: {
+        walletAddress: walletAddress.toLowerCase(),
+        role: role === 'ADMIN' ? 'ADMIN' : 'USER'
+      }
+    })
+
     return NextResponse.json({
-      exists: !!user,
-      role: user?.role || null,
-      user: user ? {
+      success: true,
+      user: {
         id: user.id,
         walletAddress: user.walletAddress,
         role: user.role,
         createdAt: user.createdAt
-      } : null
+      }
     })
   } catch (error) {
-    console.error('Check role error:', error)
+    console.error('Registration error:', error)
     return NextResponse.json(
-      { error: 'Failed to check user role' },
+      { error: 'Registration failed' },
       { status: 500 }
     )
   }

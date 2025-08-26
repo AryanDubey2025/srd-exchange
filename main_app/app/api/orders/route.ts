@@ -1,147 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
 // GET - Fetch user's orders
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const status = searchParams.get('status') || 'all'
-    
-    // TODO: Get user ID from authentication token
-    // const userId = await getUserIdFromToken(request)
-    const userId = 'user123' // Mock user ID
+    const walletAddress = searchParams.get('walletAddress')
 
-    // TODO: Replace with actual database query
-    const mockUserOrders = [
-      {
-        id: '1',
-        userId: userId,
-        type: 'buy',
-        amount: 1000,
-        price: 83.50,
-        usdtAmount: 11.98,
-        status: 'completed',
-        paymentMethod: 'UPI',
-        transactionId: 'TXN123456789',
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString()
-      },
-      {
-        id: '2',
-        userId: userId,
-        type: 'sell',
-        amount: 500,
-        price: 83.45,
-        usdtAmount: 5.99,
-        status: 'pending',
-        paymentMethod: 'Bank Transfer',
-        transactionId: null,
-        createdAt: new Date().toISOString(),
-        completedAt: null
-      }
-    ]
-
-    // Filter by status
-    let filteredOrders = mockUserOrders
-    if (status !== 'all') {
-      filteredOrders = mockUserOrders.filter(order => order.status === status)
+    if (!walletAddress) {
+      return NextResponse.json(
+        { error: 'Wallet address is required' },
+        { status: 400 }
+      )
     }
 
-    // Pagination
-    const startIndex = (page - 1) * limit
-    const endIndex = startIndex + limit
-    const paginatedOrders = filteredOrders.slice(startIndex, endIndex)
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        orders: paginatedOrders,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(filteredOrders.length / limit),
-          totalOrders: filteredOrders.length,
-          hasNext: endIndex < filteredOrders.length,
-          hasPrev: page > 1
+    // Find user by wallet address
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: walletAddress.toLowerCase() },
+      include: {
+        orders: {
+          orderBy: { createdAt: 'desc' }
         }
       }
     })
-  } catch (error) {
-    console.error('Orders fetch error:', error)
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
     return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch orders'
-    }, { status: 500 })
+      success: true,
+      orders: user.orders
+    })
+  } catch (error) {
+    console.error('Error fetching orders:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch orders' },
+      { status: 500 }
+    )
   }
 }
 
 // POST - Create new order
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { type, amount, paymentMethod, upiId, bankDetails } = body
+    const { walletAddress, amount, orderType, paymentProof, adminNotes } = await request.json()
 
-    // Validation
-    if (!type || !amount || !paymentMethod) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields: type, amount, paymentMethod'
-      }, { status: 400 })
+    if (!walletAddress || !amount || !orderType) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      )
     }
 
-    if (type !== 'buy' && type !== 'sell') {
-      return NextResponse.json({
-        success: false,
-        error: 'Order type must be either "buy" or "sell"'
-      }, { status: 400 })
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: walletAddress.toLowerCase() }
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
     }
 
-    if (amount < 100) {
-      return NextResponse.json({
-        success: false,
-        error: 'Minimum order amount is ₹100'
-      }, { status: 400 })
-    }
-
-    // TODO: Get current USDT price from your price API or database
-    const currentPrice = 83.50 // Mock price
-    const usdtAmount = parseFloat((amount / currentPrice).toFixed(2))
-
-    // TODO: Get user ID from authentication
-    const userId = 'user123' // Mock user ID
-
-    // Create order object
-    const newOrder = {
-      id: `order_${Date.now()}`,
-      userId: userId,
-      type: type,
-      amount: amount,
-      price: currentPrice,
-      usdtAmount: usdtAmount,
-      status: 'pending',
-      paymentMethod: paymentMethod,
-      paymentDetails: {
-        upiId: paymentMethod === 'UPI' ? upiId : null,
-        bankDetails: paymentMethod === 'Bank Transfer' ? bankDetails : null
-      },
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes
-    }
-
-    // TODO: Save order to database
-    console.log('Creating order:', newOrder)
+    // Create new order
+    const order = await prisma.order.create({
+      data: {
+        userId: user.id,
+        amount: amount.toString(),
+        orderType,
+        status: 'PENDING',
+        paymentProof,
+        adminNotes
+      }
+    })
 
     return NextResponse.json({
       success: true,
-      data: newOrder,
-      message: 'Order created successfully'
-    }, { status: 201 })
+      order
+    })
   } catch (error) {
-    console.error('Order creation error:', error)
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to create order'
-    }, { status: 500 })
+    console.error('Error creating order:', error)
+    return NextResponse.json(
+      { error: 'Failed to create order' },
+      { status: 500 }
+    )
   }
 }
 

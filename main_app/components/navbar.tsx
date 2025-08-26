@@ -3,13 +3,17 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
+import { useModal } from "@/contexts/ModalContext";
+import { LogOut, User } from "lucide-react";
 
 export default function Navbar() {
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const { isConnected, address } = useAccount();
+  const { openWalletModal } = useModal();
+  const { disconnect } = useDisconnect();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -24,12 +28,21 @@ export default function Navbar() {
 
   const handleConnectWallet = () => {
     if (!isConnected) {
-      setShowWalletModal(true);
+      openWalletModal();
     }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+    setShowUserMenu(false);
   };
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
   };
 
   const navLinks = ["Futures Trading", "Why us", "FAQ", "Contact us"];
@@ -37,7 +50,7 @@ export default function Navbar() {
   return (
     <>
       <motion.nav
-        className="w-full bg-black text-white px-4 sm:px-8 py-3 border-b border-gray-800 relative z-50 font-montserrat"
+        className="w-full bg-black text-white px-4 sm:px-8 py-3 border-b border-gray-800 relative z-40 font-montserrat"
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -49,15 +62,14 @@ export default function Navbar() {
             initial={{ x: -50, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            whileHover={{ scale: 1.05 }}
           >
             <div>
               <Image
-                src="/srd_final.svg"
+                src="/logo.svg"
                 alt="SRD Exchange Logo"
                 width={44}
                 height={44}
-                className="w-20 h-20 sm:w-20 sm:h-20 object-contain "
+                className="w-10 h-10 sm:w-10 sm:h-10 object-contain"
               />
             </div>
             <motion.span
@@ -97,44 +109,82 @@ export default function Navbar() {
 
             {/* Connect Wallet & Social Section */}
             <div className="flex items-center space-x-4">
-              <motion.button
-                onClick={handleConnectWallet}
-                className="bg-[#622DBF] text-white px-4 py-3 rounded-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-purple-500/25 font-montserrat"
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{
-                  delay: 0.8,
-                  type: "spring",
-                  stiffness: 260,
-                  damping: 20,
-                }}
-                whileHover={{
-                  scale: 1.05,
-                  boxShadow: "0 10px 20px rgba(98, 45, 191, 0.3)",
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <span className="text-sm tracking-wide font-medium">
-                  {isConnected
-                    ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
-                    : "CONNECT WALLET"}
-                </span>
-                <motion.svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  animate={!isMobile ? { x: [0, 3, 0] } : {}}
-                  transition={{ duration: 2, repeat: Infinity }}
+              {!isConnected ? (
+                <motion.button
+                  onClick={handleConnectWallet}
+                  className="bg-[#622DBF] text-white px-4 py-3 rounded-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-purple-500/25 font-montserrat"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{
+                    delay: 0.8,
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 20,
+                  }}
+                  whileHover={{
+                    scale: 1.05,
+                    boxShadow: "0 10px 20px rgba(98, 45, 191, 0.3)",
+                  }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </motion.svg>
-              </motion.button>
+                  <span className="text-sm tracking-wide font-medium">
+                    CONNECT WALLET
+                  </span>
+                  <motion.svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    animate={!isMobile ? { x: [0, 3, 0] } : {}}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                    />
+                  </motion.svg>
+                </motion.button>
+              ) : (
+                <div className="relative">
+                  <motion.button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="bg-[#622DBF] text-white px-4 py-3 rounded-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-purple-500/25 font-montserrat"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <User className="w-4 h-4" />
+                    <span className="text-sm tracking-wide font-medium">
+                      {formatAddress(address!)}
+                    </span>
+                  </motion.button>
+
+                  {/* User Dropdown Menu */}
+                  <AnimatePresence>
+                    {showUserMenu && (
+                      <motion.div
+                        className="absolute right-0 mt-2 w-48 bg-[#1A1A1A] border border-gray-700 rounded-lg shadow-xl z-50"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                      >
+                        <div className="p-3 border-b border-gray-700">
+                          <p className="text-gray-400 text-xs font-montserrat">Connected Wallet</p>
+                          <p className="text-white text-sm font-medium font-montserrat">{formatAddress(address!)}</p>
+                        </div>
+                        <button
+                          onClick={handleDisconnect}
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-red-400 hover:bg-red-500/10 transition-colors font-montserrat"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Disconnect</span>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
 
               {/* Social Icons */}
               <motion.div
@@ -312,35 +362,52 @@ export default function Navbar() {
 
                 {/* Connect Wallet Button */}
                 <div className="p-6 border-t border-gray-800">
-                  <motion.button
-                    onClick={() => {
-                      handleConnectWallet();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full bg-[#622DBF] text-white px-6 py-4 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg font-montserrat"
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                  >
-                    <span className="text-base tracking-wide font-monserrat">
-                      {isConnected
-                        ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
-                        : "CONNECT WALLET"}
-                    </span>
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {!isConnected ? (
+                    <motion.button
+                      onClick={() => {
+                        handleConnectWallet();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full bg-[#622DBF] text-white px-6 py-4 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg font-montserrat"
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                      />
-                    </svg>
-                  </motion.button>
+                      <span className="text-base tracking-wide font-montserrat">
+                        CONNECT WALLET
+                      </span>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 7l5 5m0 0l-5 5m5-5H6"
+                        />
+                      </svg>
+                    </motion.button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-center p-3 bg-[#1A1A1A] rounded-lg">
+                        <p className="text-gray-400 text-xs font-montserrat">Connected</p>
+                        <p className="text-white font-medium font-montserrat">{formatAddress(address!)}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          handleDisconnect();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full flex items-center justify-center space-x-2 px-6 py-3 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/10 transition-colors font-montserrat"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Disconnect</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

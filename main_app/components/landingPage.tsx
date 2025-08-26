@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useModal } from "@/contexts/ModalContext";
 
 export default function LandingPage() {
-  const [isModalOpen, setModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { openWalletModal } = useModal();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -253,9 +254,9 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        {/* Trade Now Button */}
+        {/* Updated Trade Now Button */}
         <motion.button
-          onClick={() => setModalOpen(true)}
+          onClick={openWalletModal}
           className="bg-[#622DBF] text-white md:text-xl text-lg font-semibold md:px-12 md:py-4 px-6 py-2 rounded-sm transition-all duration-200 flex items-center space-x-3 shadow-xl hover:shadow-purple-500/25 transform hover:scale-105"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -292,77 +293,6 @@ export default function LandingPage() {
             />
           </motion.svg>
         </motion.button>
-
-        {/* Modal */}
-        <AnimatePresence>
-          {isModalOpen && (
-            <motion.div 
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <motion.div 
-                className="bg-white rounded-lg p-8 max-w-md w-full mx-auto"
-                initial={{ scale: 0.7, opacity: 0, y: 50 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.7, opacity: 0, y: 50 }}
-                transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 30 }}
-              >
-                <div className="flex justify-between items-center mb-6">
-                  <motion.h2 
-                    className="text-2xl font-bold text-gray-900"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 }}
-                  >
-                    Get Started
-                  </motion.h2>
-                  <motion.button
-                    onClick={() => setModalOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                    whileHover={{ scale: 1.1, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </motion.button>
-                </div>
-                <motion.p 
-                  className="text-gray-600 mb-4"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  Connect your wallet to start trading USDT-INR
-                </motion.p>
-                <motion.button
-                  onClick={() => setModalOpen(false)}
-                  className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Connect Wallet
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );

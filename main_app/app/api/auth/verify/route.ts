@@ -15,23 +15,33 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: {
         walletAddress: walletAddress.toLowerCase()
+      },
+      include: {
+        bankDetails: true
       }
     })
 
+    if (!user) {
+      return NextResponse.json({
+        isValid: false,
+        error: 'User not found'
+      })
+    }
+
     return NextResponse.json({
-      exists: !!user,
-      role: user?.role || null,
-      user: user ? {
+      isValid: true,
+      user: {
         id: user.id,
         walletAddress: user.walletAddress,
         role: user.role,
+        hasBankDetails: !!user.bankDetails,
         createdAt: user.createdAt
-      } : null
+      }
     })
   } catch (error) {
-    console.error('Check role error:', error)
+    console.error('Verification error:', error)
     return NextResponse.json(
-      { error: 'Failed to check user role' },
+      { error: 'Verification failed' },
       { status: 500 }
     )
   }
