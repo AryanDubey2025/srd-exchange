@@ -148,7 +148,15 @@ export default function WalletConnectModal({
         }
       } else if (authData.exists) {
         // Check if existing user has completed profile
-        if (!authData.user.profileCompleted) {
+        if (authData.user.role === "ADMIN") {
+          // Admin users go directly to admin dashboard
+          setAuthStep("success");
+          setTimeout(() => {
+            router.push("/admin");
+            onClose();
+          }, 1500);
+        } else if (!authData.user.profileCompleted) {
+          // Regular users need to complete profile
           setAuthStep("success");
           setTimeout(() => {
             router.push("/complete-profile");
@@ -158,7 +166,7 @@ export default function WalletConnectModal({
           // Existing user with completed profile
           setAuthStep("success");
           setTimeout(() => {
-            router.push(authData.user.role === "ADMIN" ? "/admin" : "/dashboard");
+            router.push("/dashboard");
             onClose();
           }, 1500);
         }

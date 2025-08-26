@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdminAccess } from '@/lib/admin-middleware'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
@@ -13,12 +12,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('Admin verification request for:', walletAddress)
+
     // Check if user exists and is admin
     const user = await prisma.user.findUnique({
       where: {
         walletAddress: walletAddress.toLowerCase()
       }
     })
+
+    console.log('Admin verification - User found:', user ? { id: user.id, role: user.role } : 'No user found')
 
     if (!user) {
       return NextResponse.json({
@@ -40,6 +43,8 @@ export async function POST(request: NextRequest) {
       data: { lastLoginAt: new Date() }
     })
 
+    console.log('Admin verification successful for:', user.walletAddress)
+
     return NextResponse.json({
       isAdmin: true,
       user: {
@@ -52,35 +57,6 @@ export async function POST(request: NextRequest) {
     console.error('Admin verification error:', error)
     return NextResponse.json(
       { error: 'Verification failed' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function GET(request: NextRequest) {
-  const authResult = await verifyAdminAccess(request)
-  if (authResult instanceof NextResponse) {
-    return authResult
-  }
-
-  try {
-    const [totalUsers, totalOrders, pendingOrders, completedOrders] = await Promise.all([
-      prisma.user.count(),
-      prisma.order.count(),
-      prisma.order.count({ where: { status: 'PENDING' } }),
-      prisma.order.count({ where: { status: 'COMPLETED' } })
-    ])
-
-    return NextResponse.json({
-      totalUsers,
-      totalOrders,
-      pendingOrders,
-      completedOrders
-    })
-  } catch (error) {
-    console.error('Error fetching stats:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch stats' },
       { status: 500 }
     )
   }

@@ -41,8 +41,9 @@ export default function Navbar() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+  const formatAddress = (addr: string | undefined) => {
+    if (!addr) return '';
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
   const navLinks = ["Futures Trading", "Why us", "FAQ", "Contact us"];
@@ -109,7 +110,45 @@ export default function Navbar() {
 
             {/* Connect Wallet & Social Section */}
             <div className="flex items-center space-x-4">
-              {!isConnected ? (
+              {isConnected && address ? (
+                <div className="relative">
+                  <motion.button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="bg-[#622DBF] text-white px-4 py-3 rounded-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-purple-500/25 font-montserrat"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <User className="w-4 h-4" />
+                    <span className="text-sm tracking-wide font-medium">
+                      {formatAddress(address)}
+                    </span>
+                  </motion.button>
+
+                  {/* User Dropdown Menu */}
+                  <AnimatePresence>
+                    {showUserMenu && (
+                      <motion.div
+                        className="absolute right-0 mt-2 w-48 bg-[#1A1A1A] border border-gray-700 rounded-lg shadow-xl z-50"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                      >
+                        <div className="p-3 border-b border-gray-700">
+                          <p className="text-gray-400 text-xs font-montserrat">Connected Wallet</p>
+                          <p className="text-white text-sm font-medium font-montserrat">{formatAddress(address)}</p>
+                        </div>
+                        <button
+                          onClick={handleDisconnect}
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-red-400 hover:bg-red-500/10 transition-colors font-montserrat"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Disconnect</span>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
                 <motion.button
                   onClick={handleConnectWallet}
                   className="bg-[#622DBF] text-white px-4 py-3 rounded-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-purple-500/25 font-montserrat"
@@ -146,44 +185,6 @@ export default function Navbar() {
                     />
                   </motion.svg>
                 </motion.button>
-              ) : (
-                <div className="relative">
-                  <motion.button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="bg-[#622DBF] text-white px-4 py-3 rounded-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-purple-500/25 font-montserrat"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <User className="w-4 h-4" />
-                    <span className="text-sm tracking-wide font-medium">
-                      {formatAddress(address!)}
-                    </span>
-                  </motion.button>
-
-                  {/* User Dropdown Menu */}
-                  <AnimatePresence>
-                    {showUserMenu && (
-                      <motion.div
-                        className="absolute right-0 mt-2 w-48 bg-[#1A1A1A] border border-gray-700 rounded-lg shadow-xl z-50"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                      >
-                        <div className="p-3 border-b border-gray-700">
-                          <p className="text-gray-400 text-xs font-montserrat">Connected Wallet</p>
-                          <p className="text-white text-sm font-medium font-montserrat">{formatAddress(address!)}</p>
-                        </div>
-                        <button
-                          onClick={handleDisconnect}
-                          className="w-full flex items-center space-x-2 px-3 py-2 text-red-400 hover:bg-red-500/10 transition-colors font-montserrat"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          <span>Disconnect</span>
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
               )}
 
               {/* Social Icons */}
@@ -362,7 +363,7 @@ export default function Navbar() {
 
                 {/* Connect Wallet Button */}
                 <div className="p-6 border-t border-gray-800">
-                  {!isConnected ? (
+                  {!isConnected || !address ? (
                     <motion.button
                       onClick={() => {
                         handleConnectWallet();
@@ -394,7 +395,7 @@ export default function Navbar() {
                     <div className="space-y-3">
                       <div className="text-center p-3 bg-[#1A1A1A] rounded-lg">
                         <p className="text-gray-400 text-xs font-montserrat">Connected</p>
-                        <p className="text-white font-medium font-montserrat">{formatAddress(address!)}</p>
+                        <p className="text-white font-medium font-montserrat">{formatAddress(address)}</p>
                       </div>
                       <button
                         onClick={() => {

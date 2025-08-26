@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedAddress = walletAddress.toLowerCase()
+    console.log(`Wallet auth request - Action: ${action}, Address: ${normalizedAddress}`)
 
     if (action === 'login') {
       // Check if user exists
@@ -20,6 +21,8 @@ export async function POST(request: NextRequest) {
         where: { walletAddress: normalizedAddress },
         include: { bankDetails: true }
       })
+
+      console.log(`Login attempt - User found:`, user ? { id: user.id, role: user.role, profileCompleted: user.profileCompleted } : 'No user found')
 
       if (!user) {
         return NextResponse.json({
@@ -57,22 +60,59 @@ export async function POST(request: NextRequest) {
         where: { walletAddress: normalizedAddress }
       })
 
-      if (existingUser) {
-        return NextResponse.json(
-          { error: 'User already exists' },
-          { status: 409 }
-        )
-      }
-
-      // Determine role
+      // Determine role based on wallet address
       const role = determineUserRole(normalizedAddress)
+      console.log(`Registration - Determined role for ${normalizedAddress}: ${role}`)
+
+      if (existingUser) {
+        console.log(`Registration attempt - User already exists:`, { id: existingUser.id, role: existingUser.role })
+        
+        // If user exists but role needs to be updated (e.g., user becoming admin)
+        if (existingUser.role !== role) {
+          console.log(`Updating user role from ${existingUser.role} to ${role}`)
+          
+          const updatedUser = await prisma.user.update({
+            where: { walletAddress: normalizedAddress },
+            data: {
+              role,
+              profileCompleted: role === 'ADMIN' ? true : existingUser.profileCompleted,
+              lastLoginAt: new Date()
+            }
+          })
+
+          return NextResponse.json({
+            success: true,
+            user: {
+              id: updatedUser.id,
+              walletAddress: updatedUser.walletAddress,
+              role: updatedUser.role,
+              profileCompleted: updatedUser.profileCompleted,
+              createdAt: updatedUser.createdAt,
+              isUpdatedUser: true
+            }
+          })
+        }
+
+        // User exists with same role
+        return NextResponse.json({
+          success: true,
+          user: {
+            id: existingUser.id,
+            walletAddress: existingUser.walletAddress,
+            role: existingUser.role,
+            profileCompleted: existingUser.profileCompleted,
+            createdAt: existingUser.createdAt,
+            isExistingUser: true
+          }
+        })
+      }
 
       // Create new user
       const user = await prisma.user.create({
         data: {
           walletAddress: normalizedAddress,
           role,
-          profileCompleted: false, // New users need to complete profile
+          profileCompleted: role === 'ADMIN' ? true : false, // Admins don't need profile completion
           lastLoginAt: new Date()
         }
       })
@@ -80,7 +120,8 @@ export async function POST(request: NextRequest) {
       console.log('New user registered:', {
         id: user.id,
         address: user.walletAddress,
-        role: user.role
+        role: user.role,
+        profileCompleted: user.profileCompleted
       })
 
       return NextResponse.json({
@@ -111,11 +152,15 @@ export async function POST(request: NextRequest) {
 
 // Helper function to determine user role
 function determineUserRole(walletAddress: string): 'USER' | 'ADMIN' {
-  // Define admin wallet addresses
+  // Define admin wallet addresses here - Add your admin wallet addresses
   const adminWallets = [
-    '0x742d35cc6635c0532925a3b8d20ae4e3d56fb427',
-    // Add your admin wallet addresses here
+   
+    '0x34d7cd03fb8252ab38b0102373150cc4cfd337b9',
   ]
 
-  return adminWallets.includes(walletAddress.toLowerCase()) ? 'ADMIN' : 'USER'
+  console.log(`Checking if ${walletAddress} is in admin wallets:`, adminWallets)
+  const isAdmin = adminWallets.includes(walletAddress.toLowerCase())
+  console.log(`Result: ${isAdmin ? 'ADMIN' : 'USER'}`)
+  
+  return isAdmin ? 'ADMIN' : 'USER'
 }
