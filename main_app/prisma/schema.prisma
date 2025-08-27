@@ -11,7 +11,7 @@ model User {
   id               String       @id @default(cuid())
   walletAddress    String       @unique
   role             UserRole     @default(USER)
-  upiId            String?      // User's UPI ID
+  upiId            String?      
   profileCompleted Boolean      @default(false)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
