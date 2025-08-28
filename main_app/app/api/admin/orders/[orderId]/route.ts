@@ -3,7 +3,6 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-// Simple admin verification function
 async function verifyAdminAccess(request: NextRequest) {
   try {
     const walletAddress = request.headers.get('x-wallet-address')
@@ -35,19 +34,23 @@ async function verifyAdminAccess(request: NextRequest) {
   }
 }
 
+interface RouteParams {
+  params: Promise<{ orderId: string }>
+}
+
 export async function PATCH(
   request: NextRequest,
-  context: { params: { orderId: string } }
+  { params }: RouteParams
 ) {
   try {
-    // Verify admin access first
+
     const adminCheck = await verifyAdminAccess(request)
     if (adminCheck instanceof NextResponse) {
-      return adminCheck // Return error response
+      return adminCheck 
     }
 
+    const { orderId } = await params
     const { status, adminNotes, adminUpiId, adminBankDetails } = await request.json()
-    const { orderId } = context.params
     
     console.log('Updating order:', orderId, 'with status:', status);
     
