@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { User, FileText, Copy, CheckCircle, AlertTriangle } from 'lucide-react'
-import { useRates } from 'hooks/useRates'
-import { useAdminRates } from 'hooks/useAdminRates'
+import { useRates } from '@/hooks/useRates'
+import { useAdminRates } from '@/hooks/useAdminRates'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function AdminRight() {
@@ -28,14 +28,39 @@ export default function AdminRight() {
     setUpdateSuccess(false)
   }, [activeTab])
 
+  // Auto-refresh rates every 10 seconds to sync with latest changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch()
+    }, 10000)
+    
+    return () => clearInterval(interval)
+  }, [refetch])
+
   const handleUpdatePrice = async () => {
     if (!newBuyRate || !newSellRate) {
       return
     }
 
     try {
+      console.log('Updating rates:', { currency: activeTab, buyRate: newBuyRate, sellRate: newSellRate })
+      
       await updateRates(activeTab as 'UPI' | 'CDM', newBuyRate, newSellRate)
-      await refetch() // Refresh rates
+      
+      // Wait a moment then refresh rates
+      setTimeout(async () => {
+        await refetch()
+        
+        // Broadcast rate update event to other components
+        window.dispatchEvent(new CustomEvent('ratesUpdated', {
+          detail: {
+            currency: activeTab,
+            buyRate: parseFloat(newBuyRate),
+            sellRate: parseFloat(newSellRate)
+          }
+        }))
+      }, 500)
+      
       setNewBuyRate('')
       setNewSellRate('')
       setUpdateSuccess(true)
@@ -92,16 +117,39 @@ export default function AdminRight() {
           <p className="text-gray-400 text-sm font-montserrat">Update Buy and Sell rates for USDT ({activeTab})</p>
         </div>
 
-        {/* Current Rates */}
+        {/* Current Rates with Real-time Updates */}
         <div className="flex space-x-4 mb-6">
           <div className="flex-1 text-center">
             <div className="text-gray-400 text-sm mb-1 font-montserrat">Current Buy Rate</div>
-            <div className="text-3xl font-bold text-white font-montserrat">{currentBuyRate} ₹</div>
+            <motion.div 
+              className="text-3xl font-bold text-white font-montserrat"
+              key={`buy-${currentBuyRate}`}
+              initial={{ scale: 1 }}
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 0.3 }}
+            >
+              {currentBuyRate} ₹
+            </motion.div>
           </div>
           <div className="flex-1 text-center">
             <div className="text-gray-400 text-sm mb-1 font-montserrat">Current Sell Rate</div>
-            <div className="text-3xl font-bold text-white font-montserrat">{currentSellRate} ₹</div>
+            <motion.div 
+              className="text-3xl font-bold text-white font-montserrat"
+              key={`sell-${currentSellRate}`}
+              initial={{ scale: 1 }}
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 0.3 }}
+            >
+              {currentSellRate} ₹
+            </motion.div>
           </div>
+        </div>
+
+        {/* Last Updated Info */}
+        <div className="text-center mb-4">
+          <p className="text-xs text-gray-500 font-montserrat">
+            Last updated: {currentRate?.updatedAt ? new Date(currentRate.updatedAt).toLocaleTimeString() : 'Never'}
+          </p>
         </div>
 
         {/* New Rates Input */}
@@ -165,7 +213,7 @@ export default function AdminRight() {
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-4 h-4 text-green-400" />
                 <p className="text-green-400 text-sm font-montserrat">
-                  {activeTab} rates updated successfully!
+                  {activeTab} rates updated successfully! Changes will reflect across the platform.
                 </p>
               </div>
             </motion.div>
@@ -181,14 +229,15 @@ export default function AdminRight() {
           {updating ? (
             <div className="flex items-center justify-center space-x-2">
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Updating...</span>
+              <span>Updating Rates...</span>
             </div>
           ) : (
-            'Update Price'
+            `Update ${activeTab} Rates`
           )}
         </button>
       </div>
 
+      {/* Rest of the component remains the same... */}
       {/* User Info Section */}
       <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
         <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">User Info</h3>

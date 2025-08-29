@@ -1,7 +1,7 @@
 'use client'
 
 import { Copy, User, ExternalLink, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWalletManager } from '@/hooks/useWalletManager'
 import { useUserOrders } from '@/hooks/useUserOrders'
@@ -176,6 +176,24 @@ export default function BuySellSection() {
       setIsPlacingOrder(false)
     }
   }
+
+  useEffect(() => {
+    // Listen for rate updates from admin panel
+    const handleRatesUpdated = (event: CustomEvent) => {
+      console.log('Rates updated event received:', event.detail)
+      // Refresh rates when admin updates them
+      setTimeout(() => {
+        // Force refetch rates
+        window.location.reload() // Simple approach to ensure fresh rates
+      }, 1000)
+    }
+    
+    window.addEventListener('ratesUpdated', handleRatesUpdated as EventListener)
+    
+    return () => {
+      window.removeEventListener('ratesUpdated', handleRatesUpdated as EventListener)
+    }
+  }, [])
 
   return (
     <>
