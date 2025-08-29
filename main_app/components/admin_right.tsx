@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { User, FileText, Copy, CheckCircle, AlertTriangle, RefreshCw, Send, Edit3 } from 'lucide-react'
+import { User, FileText, Copy, CheckCircle, AlertTriangle, RefreshCw, Send, Edit3, Info } from 'lucide-react'
 import { useRates } from '@/hooks/useRates'
 import { useAdminRates } from '@/hooks/useAdminRates'
 import { useAdminAPI } from '@/hooks/useAdminAPI'
@@ -186,7 +186,7 @@ export default function AdminRight() {
       // Ensure adminUpiId is properly trimmed and not empty
       const trimmedUpiId = adminUpiId.trim();
       
-      // Validate required fields
+      // Validate required fields - UPDATED LOGIC
       if (paymentMethod === 'BUY_UPI') {
         if (!trimmedUpiId || trimmedUpiId.length === 0) {
           alert('Please enter a valid UPI ID');
@@ -196,19 +196,26 @@ export default function AdminRight() {
         console.log('✅ UPI ID validation passed:', trimmedUpiId);
       }
       
-      if (paymentMethod === 'BUY_CDM' && (!adminBankDetails.accountNumber || !adminBankDetails.ifscCode)) {
-        alert('Please enter complete bank details');
-        setSendingPaymentDetails(false);
-        return;
+      // For CDM orders, only validate UPI ID (not bank details)
+      if (paymentMethod === 'BUY_CDM') {
+        if (!trimmedUpiId || trimmedUpiId.length === 0) {
+          alert('Please enter a valid UPI ID for ₹500 verification');
+          setSendingPaymentDetails(false);
+          return;
+        }
+        console.log('✅ CDM UPI ID validation passed:', trimmedUpiId);
       }
       
       // Prepare payment details for database
       const paymentDetailsUpdate = {
         status: 'ADMIN_APPROVED',
-        adminUpiId: paymentMethod === 'BUY_UPI' ? trimmedUpiId : null,
-        adminBankDetails: paymentMethod === 'BUY_CDM' ? JSON.stringify(adminBankDetails) : null,
-        adminNotes: `Payment details provided. Amount: ${customOrderValue}`,
-        amount: parseFloat(customOrderValue) || selectedOrder.amount // Update amount if custom amount is set
+        adminUpiId: trimmedUpiId, // Always send UPI ID for both UPI and CDM orders
+        // Don't send bank details yet for CDM orders - will be sent separately
+        adminBankDetails: paymentMethod === 'BUY_UPI' ? null : null,
+        adminNotes: paymentMethod === 'BUY_CDM' 
+          ? `UPI ID provided for ₹500 verification. Amount: ${customOrderValue}` 
+          : `Payment details provided. Amount: ${customOrderValue}`,
+        amount: parseFloat(customOrderValue) || selectedOrder.amount
       };
 
       // Update order in database with admin payment details
@@ -229,17 +236,9 @@ export default function AdminRight() {
         
         console.log('🎉 Payment details saved to database successfully!');
         
-        // Clear form fields
-        if (paymentMethod === 'BUY_UPI') {
-          setAdminUpiId('');
-        } else {
-          setAdminBankDetails({
-            accountNumber: '',
-            ifscCode: '',
-            branchName: '',
-            accountHolderName: ''
-          });
-        }
+        // Clear UPI field after sending
+        setAdminUpiId('');
+        
       } else {
         throw new Error(updateResponse.error || 'Failed to update order');
       }
@@ -258,6 +257,47 @@ export default function AdminRight() {
     const value = parseFloat(customOrderValue)
     if (isNaN(value) || value <= 0) {
       setCustomOrderValue(selectedOrder?.amount.toString() || '')
+    }
+  }
+
+  const [sendingBankDetails, setSendingBankDetails] = useState(false)
+
+  const handleSendBankDetails = async () => {
+    if (!selectedOrder) return;
+
+    setSendingBankDetails(true);
+    try {
+      const orderId = selectedOrder.fullId || selectedOrder.id;
+      
+      const bankDetailsUpdate = {
+        adminBankDetails: JSON.stringify(adminBankDetails),
+        adminNotes: `Bank details provided for main transfer. Amount: ${customOrderValue}`,
+        // Don't change the status here - keep it as ADMIN_APPROVED
+      };
+
+      const updateResponse = await makeAdminRequest(`/api/admin/orders/${orderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(bankDetailsUpdate)
+      });
+
+      if (updateResponse.success) {
+        setUpdateSuccess(true);
+        setTimeout(() => setUpdateSuccess(false), 3000);
+        console.log('🎉 Bank details sent successfully!');
+        
+        // Clear bank details form after sending
+        setAdminBankDetails({
+          accountNumber: '',
+          ifscCode: '',
+          branchName: '',
+          accountHolderName: ''
+        });
+      }
+    } catch (error) {
+      console.error('💥 Error sending bank details:', error);
+      alert('Failed to send bank details. Please try again.');
+    } finally {
+      setSendingBankDetails(false);
     }
   }
 
@@ -769,127 +809,206 @@ export default function AdminRight() {
 
           {/* Payment section for CDM */}
           {selectedOrder.orderType === 'BUY_CDM' && (
-            <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
-              <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">Send Bank Payment Details</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-gray-400 text-sm font-montserrat">Admin Account Number</span>
+            <>
+              {/* UPI Verification Section for CDM Orders */}
+              <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4 mb-6">
+                <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">Send UPI for ₹500 Verification</h3>
+                
+                <div className="space-y-4">
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Info className="w-4 h-4 text-blue-400" />
+                      <span className="text-blue-400 text-sm font-montserrat">CDM Order Process</span>
+                    </div>
+                    <p className="text-gray-300 text-xs">
+                      For CDM orders, user must first pay ₹500 verification fee via UPI before bank transfer
+                    </p>
                   </div>
-                  <input
-                    type="text"
-                    value={adminBankDetails.accountNumber}
-                    onChange={(e) => setAdminBankDetails({...adminBankDetails, accountNumber: e.target.value})}
-                    className="w-full bg-[#1E1C1C] border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat"
-                    placeholder="Enter account number"
-                  />
-                </div>
 
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-gray-400 text-sm font-montserrat">IFSC CODE</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={adminBankDetails.ifscCode}
-                    onChange={(e) => setAdminBankDetails({...adminBankDetails, ifscCode: e.target.value})}
-                    className="w-full bg-[#1E1C1C] border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat"
-                    placeholder="Enter IFSC code"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-gray-400 text-sm font-montserrat">Branch Name</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={adminBankDetails.branchName}
-                    onChange={(e) => setAdminBankDetails({...adminBankDetails, branchName: e.target.value})}
-                    className="w-full bg-[#1E1C1C] border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat"
-                    placeholder="Enter branch name"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-gray-400 text-sm font-montserrat">Account Holder Name</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={adminBankDetails.accountHolderName}
-                    onChange={(e) => setAdminBankDetails({...adminBankDetails, accountHolderName: e.target.value})}
-                    className="w-full bg-[#1E1C1C] border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat"
-                    placeholder="Enter account holder name"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-gray-400 text-sm font-montserrat">Amount user should pay</span>
-                  </div>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-montserrat">₹</span>
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <User className="w-4 h-4 text-white" />
+                      <span className="text-gray-400 text-sm font-montserrat">Admin UPI ID for ₹500 Verification</span>
+                    </div>
                     <input
                       type="text"
-                      value={customOrderValue}
-                      readOnly
-                      className="w-full bg-[#2a2a2a] border border-gray-600/50 rounded-md py-2 pl-7 pr-4 text-white focus:outline-none font-montserrat font-bold"
+                      value={adminUpiId}
+                      onChange={(e) => setAdminUpiId(e.target.value)}
+                      className="w-full bg-[#1E1C1C] border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat"
+                      placeholder="Enter your UPI ID for ₹500 verification"
                     />
                   </div>
-                </div>
 
-                {paymentDetailsSent && (
-                  <motion.div
-                    className="p-3 bg-green-500/10 border border-green-500/20 rounded-md"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                      <p className="text-green-400 text-sm font-montserrat">
-                        Payment details sent to user! They will see your bank details and the custom amount.
-                      </p>
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-gray-400 text-sm font-montserrat">Verification Amount</span>
                     </div>
-                  </motion.div>
-                )}
-
-                <button 
-                  onClick={() => handleSendPaymentDetails('BUY_CDM')}
-                  disabled={!adminBankDetails.accountNumber || !adminBankDetails.ifscCode || sendingPaymentDetails || paymentDetailsSent}
-                  className="w-full bg-[#622DBF] hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-md font-medium transition-all font-montserrat"
-                >
-                  {sendingPaymentDetails ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Sending...</span>
-                    </div>
-                  ) : paymentDetailsSent ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Payment Details Sent</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center space-x-2">
-                      <Send className="w-4 h-4" />
-                      <span>Send Bank Details to User</span>
-                    </div>
-                  )}
-                </button>
-
-                {/* Payment Receipt Section */}
-                <div className="mt-6">
-                  <h4 className="text-gray-400 text-sm mb-3 font-montserrat">Payment Receipt (CDM)</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-400 text-sm font-montserrat">No receipts uploaded yet</span>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-montserrat">₹</span>
+                      <input
+                        type="text"
+                        value="500"
+                        readOnly
+                        className="w-full bg-[#2a2a2a] border border-gray-600/50 rounded-md py-2 pl-7 pr-4 text-yellow-400 focus:outline-none font-montserrat font-bold"
+                      />
                     </div>
                   </div>
+
+                  {paymentDetailsSent && (
+                    <motion.div
+                      className="p-3 bg-green-500/10 border border-green-500/20 rounded-md"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <p className="text-green-400 text-sm font-montserrat">
+                          UPI ID sent! User can now pay ₹500 verification fee.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <button 
+                    onClick={() => handleSendPaymentDetails('BUY_CDM')}
+                    disabled={!adminUpiId || sendingPaymentDetails || paymentDetailsSent}
+                    className="w-full bg-[#622DBF] hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-md font-medium transition-all font-montserrat"
+                  >
+                    {sendingPaymentDetails ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Sending...</span>
+                      </div>
+                    ) : paymentDetailsSent ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>UPI ID Sent for Verification</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-2">
+                        <Send className="w-4 h-4" />
+                        <span>Send UPI ID for ₹500 Verification</span>
+                      </div>
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
+
+              {/* Bank Details Section - Show after UPI verification */}
+              <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
+                <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">Send Bank Details for Main Transfer</h3>
+                
+                {!paymentDetailsSent && (
+                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md mb-4">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                      <p className="text-yellow-400 text-sm font-montserrat">
+                        Send UPI ID first for ₹500 verification before providing bank details
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-gray-400 text-sm font-montserrat">Admin Account Number</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={adminBankDetails.accountNumber}
+                      onChange={(e) => setAdminBankDetails({...adminBankDetails, accountNumber: e.target.value})}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
+                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                      }`}
+                      placeholder="Enter account number"
+                      disabled={!paymentDetailsSent}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-gray-400 text-sm font-montserrat">IFSC CODE</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={adminBankDetails.ifscCode}
+                      onChange={(e) => setAdminBankDetails({...adminBankDetails, ifscCode: e.target.value})}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
+                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                      }`}
+                      placeholder="Enter IFSC code"
+                      disabled={!paymentDetailsSent}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-gray-400 text-sm font-montserrat">Branch Name</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={adminBankDetails.branchName}
+                      onChange={(e) => setAdminBankDetails({...adminBankDetails, branchName: e.target.value})}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
+                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                      }`}
+                      placeholder="Enter branch name"
+                      disabled={!paymentDetailsSent}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-gray-400 text-sm font-montserrat">Account Holder Name</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={adminBankDetails.accountHolderName}
+                      onChange={(e) => setAdminBankDetails({...adminBankDetails, accountHolderName: e.target.value})}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
+                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                      }`}
+                      placeholder="Enter account holder name"
+                      disabled={!paymentDetailsSent}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-gray-400 text-sm font-montserrat">Amount user should pay</span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-montserrat">₹</span>
+                      <input
+                        type="text"
+                        value={customOrderValue}
+                        readOnly
+                        className="w-full bg-[#2a2a2a] border border-gray-600/50 rounded-md py-2 pl-7 pr-4 text-white focus:outline-none font-montserrat font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleSendBankDetails}
+                    disabled={!adminBankDetails.accountNumber || !adminBankDetails.ifscCode || !adminBankDetails.branchName || !adminBankDetails.accountHolderName || !paymentDetailsSent || sendingBankDetails}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-md font-medium transition-all font-montserrat"
+                  >
+                    {sendingBankDetails ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Sending...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-2">
+                        <Send className="w-4 h-4" />
+                        <span>Send Bank Details for Main Transfer</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </>
       ) : (
