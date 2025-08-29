@@ -81,9 +81,9 @@ export default function AdminRight() {
       setCustomOrderValue(selectedOrderData.amount.toString());
       setIsEditingOrderValue(false);
       setPaymentDetailsSent(false);
-      setIsOrderSelected(true); // Add this line
+      setIsOrderSelected(true);
       
-      // Set the user details tab based on order type
+    
       if (selectedOrderData.currency === 'CDM') {
         setUserDetailsTab('BANK');
       } else {
@@ -116,14 +116,7 @@ export default function AdminRight() {
     setUpdateSuccess(false)
   }, [activeTab])
 
-  // Auto-refresh rates every 10 seconds to sync with latest changes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetch()
-    }, 10000)
-    
-    return () => clearInterval(interval)
-  }, [refetch])
+
 
   const handleUpdatePrice = async () => {
     if (!newBuyRate || !newSellRate) {
@@ -180,13 +173,12 @@ export default function AdminRight() {
     setSendingPaymentDetails(true);
 
     try {
-      // Use the fullId as the primary identifier, fallback to id
+    
       const orderId = selectedOrder.fullId || selectedOrder.id;
-      
-      // Ensure adminUpiId is properly trimmed and not empty
+
       const trimmedUpiId = adminUpiId.trim();
       
-      // Validate required fields - UPDATED LOGIC
+   
       if (paymentMethod === 'BUY_UPI') {
         if (!trimmedUpiId || trimmedUpiId.length === 0) {
           alert('Please enter a valid UPI ID');
@@ -206,11 +198,11 @@ export default function AdminRight() {
         console.log('✅ CDM UPI ID validation passed:', trimmedUpiId);
       }
       
-      // Prepare payment details for database
+
       const paymentDetailsUpdate = {
         status: 'ADMIN_APPROVED',
-        adminUpiId: trimmedUpiId, // Always send UPI ID for both UPI and CDM orders
-        // Don't send bank details yet for CDM orders - will be sent separately
+        adminUpiId: trimmedUpiId,
+       
         adminBankDetails: paymentMethod === 'BUY_UPI' ? null : null,
         adminNotes: paymentMethod === 'BUY_CDM' 
           ? `UPI ID provided for ₹500 verification. Amount: ${customOrderValue}` 

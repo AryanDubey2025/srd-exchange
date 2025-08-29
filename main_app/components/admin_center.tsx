@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { User } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import { useAdminAPI } from '@/hooks/useAdminAPI'
+import { useUserActivity } from '@/hooks/useUserActivity'
 import CancelOrderModal from './modal/cancelOrder'
 
 interface Order {
@@ -39,6 +40,8 @@ export default function AdminCenter() {
 
   const { address } = useAccount()
   const { makeAdminRequest } = useAdminAPI()
+  const isUserActive = useUserActivity(5000);
+  const [lastCenterRefresh, setLastCenterRefresh] = useState(Date.now());
 
   useEffect(() => {
     fetchAcceptedOrders()
@@ -50,17 +53,32 @@ export default function AdminCenter() {
     
     window.addEventListener('orderAccepted', handleOrderAccepted as EventListener)
     
-    const interval = setInterval(() => {
-      if (address) {
-        fetchAcceptedOrders()
-      }
-    }, 30000)
-    
     return () => {
       window.removeEventListener('orderAccepted', handleOrderAccepted as EventListener)
-      clearInterval(interval)
     }
   }, [address])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Only refresh if no order is selected and user is not active
+      if (!selectedOrder && !isUserActive) {
+        console.log('🔄 Auto-refreshing admin center orders');
+        fetchAcceptedOrders();
+        setLastCenterRefresh(Date.now());
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [selectedOrder, isUserActive]);
+
+  useEffect(() => {
+    // Broadcast when order is selected/deselected to pause refresh in other components
+    if (selectedOrder) {
+      window.dispatchEvent(new CustomEvent('adminOrderSelected'));
+    } else {
+      window.dispatchEvent(new CustomEvent('adminOrderDeselected'));
+    }
+  }, [selectedOrder]);
 
   const fetchAcceptedOrders = async () => {
     if (!address) {

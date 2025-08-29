@@ -779,9 +779,13 @@ export default function BuyCDMModal({
                         ? handleUpiPaymentConfirm
                         : undefined
                     }
-                    disabled={!paymentDetails?.adminUpiId && !isUpiPaid && !isPaid && !isUploadComplete && !isOrderComplete}
+                    disabled={
+                      !paymentDetails?.adminUpiId && !isUpiPaid && !isPaid && !isUploadComplete && !isOrderComplete ||
+                      (isUpiPaid && !hasReceivedAdminDetails) // Add this condition to disable when waiting for bank details
+                    }
                     className={`w-full py-3 rounded-lg font-bold text-white transition-all ${
-                      paymentDetails?.adminUpiId || isUpiPaid || isPaid || isUploadComplete || isOrderComplete
+                      (paymentDetails?.adminUpiId || isUpiPaid || isPaid || isUploadComplete || isOrderComplete) && 
+                      !(isUpiPaid && !hasReceivedAdminDetails) // Ensure button is inactive when waiting for bank details
                         ? 'bg-[#622DBF] hover:bg-purple-700 cursor-pointer'
                         : 'bg-gray-600 cursor-not-allowed opacity-50'
                     }`}
@@ -806,6 +810,12 @@ export default function BuyCDMModal({
                         <>
                           <CreditCard className="w-5 h-5" />
                           <span>I Paid {displayAmount}₹ To Admin Bank</span>
+                        </>
+                      ) : isUpiPaid && !hasReceivedAdminDetails ? (
+                        // New condition for waiting state after UPI payment
+                        <>
+                          <Clock className="w-5 h-5 animate-pulse" />
+                          <span>Waiting for Admin Bank Details</span>
                         </>
                       ) : paymentDetails?.adminUpiId && !isUpiPaid ? (
                         <>

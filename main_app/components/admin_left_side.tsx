@@ -1,10 +1,11 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAccount } from 'wagmi';
 import { useAdminAPI } from '@/hooks/useAdminAPI';
+import { useUserActivity } from '@/hooks/useUserActivity';
 import CancelOrderModal from "./modal/cancelOrder";
 
 interface Order {
@@ -33,14 +34,50 @@ export default function AdminLeftSide() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
 
   const { address } = useAccount();
   const { makeAdminRequest } = useAdminAPI();
+  const isUserActive = useUserActivity(5000);
 
-  // Fetch orders based on active filter
   useEffect(() => {
     fetchOrders();
   }, [activeFilter, address]);
+
+  useEffect(() => {
+    if (!autoRefreshEnabled || !address) return;
+
+    const interval = setInterval(() => {
+      if (!isUserActive && !showCancelModal) {
+        console.log('🔄 Auto-refreshing orders (user inactive)');
+        fetchOrders();
+        setLastRefresh(Date.now());
+      } else {
+        console.log('⏸️ Skipping auto-refresh (user active or modal open)');
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [autoRefreshEnabled, address, isUserActive, showCancelModal]);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+
+    if (!isUserActive && autoRefreshEnabled && address) {
+      timeout = setTimeout(() => {
+        if (!isUserActive && !showCancelModal) {
+          console.log('🔄 Manual refresh after user became inactive');
+          fetchOrders();
+          setLastRefresh(Date.now());
+        }
+      }, 2000);
+    }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [isUserActive, autoRefreshEnabled, address, showCancelModal]);
 
   const fetchOrders = async () => {
     if (!address) {
@@ -51,13 +88,13 @@ export default function AdminLeftSide() {
 
     setLoading(true);
     setError(null);
-    
+
     try {
       const statusParam = activeFilter.toLowerCase();
       console.log('Fetching orders with status:', statusParam);
-      
+
       const data = await makeAdminRequest(`/api/admin/orders?status=${statusParam}`);
-      
+
       if (data.success) {
         console.log('Orders found:', data.orders.length);
         setOrders(data.orders);
@@ -73,6 +110,16 @@ export default function AdminLeftSide() {
     }
   };
 
+  const handleManualRefresh = () => {
+    console.log('🔄 Manual refresh triggered');
+    fetchOrders();
+    setLastRefresh(Date.now());
+  };
+
+  const toggleAutoRefresh = () => {
+    setAutoRefreshEnabled(!autoRefreshEnabled);
+  };
+
   const handleAccept = async (order: Order) => {
     try {
       console.log('Accepting order:', order.fullId);
@@ -85,12 +132,10 @@ export default function AdminLeftSide() {
 
       if (data.success) {
         console.log('Order accepted successfully');
-        // Refresh orders
         fetchOrders();
-        
-        // Trigger a custom event to notify other components
-        window.dispatchEvent(new CustomEvent('orderAccepted', { 
-          detail: { orderId: order.fullId, order } 
+
+        window.dispatchEvent(new CustomEvent('orderAccepted', {
+          detail: { orderId: order.fullId, order }
         }));
       } else {
         console.error('Failed to accept order:', data.error);
@@ -119,7 +164,6 @@ export default function AdminLeftSide() {
 
         if (data.success) {
           console.log('Order rejected successfully');
-          // Refresh orders
           fetchOrders();
         } else {
           console.error('Failed to reject order:', data.error);
@@ -137,7 +181,6 @@ export default function AdminLeftSide() {
     setSelectedOrder(null);
   };
 
-  // Filter orders based on search term
   const filteredOrders = orders.filter(order =>
     order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.user.walletAddress.toLowerCase().includes(searchTerm.toLowerCase())
@@ -160,25 +203,55 @@ export default function AdminLeftSide() {
     }
   };
 
-  // Debug log
-  console.log('Admin Left Side State:', {
-    activeFilter,
-    loading,
-    ordersCount: orders.length,
-    filteredOrdersCount: filteredOrders.length,
-    hasAddress: !!address,
-    error
-  });
-
   return (
     <div className="bg-[#141414] text-white h-full py-4 px-2 overflow-y-auto">
-      {/* Header */}
-      <div className="flex bg-[#1E1E1E] rounded-sm items-center justify-center mb-6 space-x-2">
-        <div className="w-2 h-2 bg-[#622DBF] rounded-full"></div>
-        <h2 className="text-lg font-semibold text-white p-2">All Orders</h2>
+      <div className="flex bg-[#1E1E1E] rounded-sm items-center justify-between mb-4 px-3 py-2">
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-[#622DBF] rounded-full"></div>
+          <h2 className="text-lg font-semibold text-white">All Orders</h2>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <div className={`w-2 h-2 rounded-full ${isUserActive ? 'bg-green-400' : 'bg-gray-400'}`}></div>
+
+          <button
+            onClick={toggleAutoRefresh}
+            className={`text-xs px-2 py-1 rounded transition-all ${
+              autoRefreshEnabled
+                ? 'bg-green-600/20 text-green-400 border border-green-600/30'
+                : 'bg-gray-600/20 text-gray-400 border border-gray-600/30'
+            }`}
+            title={autoRefreshEnabled ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
+          >
+            Auto
+          </button>
+
+          <button
+            onClick={handleManualRefresh}
+            disabled={loading}
+            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            title="Manual refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Search Bar */}
+      <div className="text-center mb-4">
+        <p className="text-xs text-gray-500">
+          Last updated: {new Date(lastRefresh).toLocaleTimeString()}
+          {autoRefreshEnabled && !isUserActive && (
+            <span className="text-green-400 ml-2">• Auto-refresh active</span>
+          )}
+          {autoRefreshEnabled && isUserActive && (
+            <span className="text-yellow-400 ml-2">• Auto-refresh paused</span>
+          )}
+          {!autoRefreshEnabled && (
+            <span className="text-gray-400 ml-2">• Auto-refresh disabled</span>
+          )}
+        </p>
+      </div>
+
       <div className="relative mb-6 flex justify-center">
         <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
           <Search className="w-4 h-4 text-gray-400"/>
@@ -192,7 +265,6 @@ export default function AdminLeftSide() {
         />
       </div>
 
-      {/* Filter Buttons */}
       <div className="flex flex-col sm:flex-row gap-2 mb-6 w-[90%] mx-auto">
         <button
           onClick={() => setActiveFilter("Pending")}
@@ -229,7 +301,6 @@ export default function AdminLeftSide() {
         </button>
       </div>
 
-      {/* Error Display */}
       {error && (
         <div className="mb-4 p-3 bg-red-600/20 border border-red-600/50 rounded text-sm text-red-300">
           <div className="font-medium">Error:</div>
@@ -237,7 +308,6 @@ export default function AdminLeftSide() {
         </div>
       )}
 
-      {/* Wallet Connection Status */}
       {!address && (
         <div className="mb-4 p-3 bg-yellow-600/20 border border-yellow-600/50 rounded text-sm text-yellow-300">
           <div className="font-medium">Admin wallet not connected</div>
@@ -245,7 +315,6 @@ export default function AdminLeftSide() {
         </div>
       )}
 
-      {/* Orders List */}
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-8">
@@ -275,7 +344,6 @@ export default function AdminLeftSide() {
               key={order.fullId}
               className="bg-[#1D1C1C] rounded-md py-2 px-2"
             >
-              {/* Order Header */}
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <span className="text-white text-md">{order.id}</span>
@@ -309,7 +377,6 @@ export default function AdminLeftSide() {
                 </div>
               </div>
 
-              {/* Order Details */}
               <div className="flex items-center justify-center mb-3">
                 <div className="flex items-center space-x-2 border border-[#464646] py-0.5 px-0.5 rounded">
                   <span className="text-white font-bold bg-[#222] py-0.5 px-1.5 rounded-sm flex items-center space-x-1">
@@ -343,7 +410,6 @@ export default function AdminLeftSide() {
                 </div>
               </div>
 
-              {/* Action Buttons - Only show for pending orders */}
               {activeFilter === "Pending" && order.status === "PENDING" && (
                 <div className="flex space-x-3 justify-end">
                   <button 
@@ -365,7 +431,6 @@ export default function AdminLeftSide() {
         )}
       </div>
 
-      {/* Cancel Order Modal */}
       <CancelOrderModal
         isOpen={showCancelModal}
         onClose={handleCloseCancelModal}
