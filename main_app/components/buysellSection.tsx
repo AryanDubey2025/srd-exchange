@@ -59,13 +59,15 @@ export default function BuySellSection() {
   const calculateUSDT = (rupeeAmount: string) => {
     const numericAmount = parseFloat(rupeeAmount)
     if (isNaN(numericAmount) || numericAmount <= 0) return '0'
+    // For buying: rupees / buy_rate = USDT
     const usdtAmount = numericAmount / buyPrice
-    return usdtAmount.toFixed(2)
+    return usdtAmount.toFixed(4) // More precision for USDT
   }
 
   const calculateRupee = (usdtAmount: string) => {
     const numericAmount = parseFloat(usdtAmount)
     if (isNaN(numericAmount) || numericAmount <= 0) return '0'
+    // For selling: USDT * sell_rate = rupees
     const rupeeAmount = numericAmount * sellPrice
     return rupeeAmount.toFixed(2)
   }
@@ -108,6 +110,28 @@ export default function BuySellSection() {
     if (!address) return null
 
     try {
+      let finalOrderAmount = orderAmount
+      let finalUsdtAmount = ''
+      
+      if (orderType.includes('BUY')) {
+        // For buy orders: user enters rupees, we calculate USDT
+        finalOrderAmount = orderAmount // rupees amount
+        finalUsdtAmount = calculateUSDT(orderAmount) // converted USDT
+      } else {
+        // For sell orders: user enters USDT, we calculate rupees
+        finalUsdtAmount = orderAmount // USDT amount
+        finalOrderAmount = calculateRupee(orderAmount) // converted rupees
+      }
+      
+      console.log('🚀 Creating order with conversions:', {
+        orderType,
+        rupeeAmount: finalOrderAmount,
+        usdtAmount: finalUsdtAmount,
+        rate,
+        buyPrice,
+        sellPrice
+      });
+
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
@@ -116,8 +140,8 @@ export default function BuySellSection() {
         body: JSON.stringify({
           walletAddress: address,
           orderType: orderType,
-          amount: orderAmount,
-          usdtAmount: orderType.includes('BUY') ? usdtAmount : amount,
+          amount: finalOrderAmount, // Always rupees for database
+          usdtAmount: finalUsdtAmount, // Always USDT amount
           buyRate: orderType.includes('BUY') ? rate : null,
           sellRate: orderType.includes('SELL') ? rate : null,
           paymentMethod: paymentMethod.toUpperCase()
@@ -127,7 +151,6 @@ export default function BuySellSection() {
       const data = await response.json()
       
       if (data.success) {
-        // Refresh orders after successful creation
         await refetchOrders()
         return data.order
       } else {
@@ -581,14 +604,14 @@ export default function BuySellSection() {
                 
                 <div className="relative mb-4 sm:mb-6 flex justify-center">
                   <span className="absolute left-3 sm:left-65 top-1/2 transform -translate-y-1/2 text-gray-400 text-2xl sm:text-3xl">
-                    {activeTab === 'buy' ? '₹' : activeTab === 'sell' ? '$' : '₹'}
+                    {activeTab === 'buy' ? '₹' : '$'}
                   </span>
                   <motion.input
                     type="text"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="bg-[#1E1C1C] border border-gray-600/50 rounded-xl py-4 sm:py-5 pl-10 sm:pl-12 pr-4 text-xl sm:text-2xl font-medium focus:outline-none focus:border-[#622DBF] focus:ring-2 focus:ring-purple-500/20 text-white placeholder-gray-500 w-full max-w-xs"
-                    placeholder="0"
+                    placeholder={activeTab === 'buy' ? "Enter rupees" : "Enter USDT"}
                     whileFocus={{ scale: 1.02 }}
                     transition={{ duration: 0.2 }}
                   />
@@ -619,8 +642,14 @@ export default function BuySellSection() {
                   </div>
                   <div className="text-sm text-white">
                     {activeTab === 'buy' 
-                      ? 'will be credited to your account'
-                      : 'will be transferred to your account'
+                      ? `will be credited to your wallet at ₹${buyPrice} per USDT`
+                      : `will be transferred to your account at ₹${sellPrice} per USDT`
+                    }
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {activeTab === 'buy' 
+                      ? `Rate: 1 USDT = ₹${buyPrice}`
+                      : `Rate: 1 USDT = ₹${sellPrice}`
                     }
                   </div>
                 </motion.div>
@@ -650,7 +679,9 @@ export default function BuySellSection() {
                   ? `Placing ${activeTab === 'buy' ? 'Buy' : 'Sell'} Order...`
                   : paymentMethod === 'cdm' && !bankDetails
                   ? `Add Bank Details & ${activeTab === 'buy' ? 'Buy' : 'Sell'}`
-                  : `${activeTab === 'buy' ? 'Buy' : 'Sell'} ${amount ? `${amount} USDT` : ''}`
+                  : activeTab === 'buy'
+                  ? `Buy ${amount ? calculateUSDT(amount) : ''} USDT for ₹${amount || '0'}`
+                  : `Sell ${amount || '0'} USDT for ₹${amount ? calculateRupee(amount) : '0'}`
                 }
               </motion.button>
             )}

@@ -44,6 +44,7 @@ model Order {
   blockchainOrderId String?     // For blockchain order tracking
   user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount            Decimal
+  usdtAmount        Decimal?    // Add this field for USDT amount
   orderType         OrderType
   status            OrderStatus @default(PENDING)
   paymentProof      String?     // CDM receipt image URL

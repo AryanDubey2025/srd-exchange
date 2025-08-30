@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useAccount } from 'wagmi';
 import { useAdminAPI } from '@/hooks/useAdminAPI';
 import { useUserActivity } from '@/hooks/useUserActivity';
+import { useRates } from '@/hooks/useRates';
 import CancelOrderModal from "./modal/cancelOrder";
 
 interface Order {
@@ -40,6 +41,7 @@ export default function AdminLeftSide() {
   const { address } = useAccount();
   const { makeAdminRequest } = useAdminAPI();
   const isUserActive = useUserActivity(5000);
+  const { getBuyRate, getSellRate } = useRates();
 
   useEffect(() => {
     fetchOrders();
@@ -339,95 +341,114 @@ export default function AdminLeftSide() {
             )}
           </div>
         ) : (
-          filteredOrders.map((order, index) => (
-            <div
-              key={order.fullId}
-              className="bg-[#1D1C1C] rounded-md py-2 px-2"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <span className="text-white text-md">{order.id}</span>
-                  <div className="text-white text-xs">{order.time}</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {order.user.walletAddress.slice(0, 6)}...{order.user.walletAddress.slice(-4)}
+          filteredOrders.map((order, index) => {
+            const buyRate = getBuyRate(order.currency as 'UPI' | 'CDM');
+            const sellRate = getSellRate(order.currency as 'UPI' | 'CDM');
+            
+            let displayAmount = '';
+            let displayConversion = '';
+            
+            if (order.orderType.includes('BUY')) {
+              const usdtAmount = (order.amount / buyRate).toFixed(6);
+              displayAmount = `₹${order.amount}`;
+              displayConversion = `${usdtAmount} USDT`;
+            } else {
+              const rupeeAmount = (order.amount * sellRate).toFixed(2);
+              displayAmount = `${order.amount} USDT`;
+              displayConversion = `₹${rupeeAmount}`;
+            }
+            
+            return (
+              <div key={order.fullId} className="bg-[#1D1C1C] rounded-md py-2 px-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <span className="text-white text-md">{order.id}</span>
+                    <div className="text-white text-xs">{order.time}</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {order.user.walletAddress.slice(0, 6)}...{order.user.walletAddress.slice(-4)}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end space-y-1">
+                    <div className="flex items-center space-x-1">
+                      {order.currency === "UPI" ? (
+                        <Image 
+                          src="/phonepay-gpay.svg" 
+                          alt="UPI" 
+                          width={20} 
+                          height={12}
+                          className="flex-shrink-0"
+                        />
+                      ) : (
+                        <Image 
+                          src="/bank.svg" 
+                          alt="CDM" 
+                          width={16} 
+                          height={16}
+                          className="flex-shrink-0"
+                        />
+                      )}
+                      <span className="text-white text-sm">{order.currency}</span>
+                    </div>
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(order.status)}`}></div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end space-y-1">
-                  <div className="flex items-center space-x-1">
-                    {order.currency === "UPI" ? (
-                      <Image 
-                        src="/phonepay-gpay.svg" 
-                        alt="UPI" 
-                        width={20} 
-                        height={12}
-                        className="flex-shrink-0"
-                      />
-                    ) : (
-                      <Image 
-                        src="/bank.svg" 
-                        alt="CDM" 
-                        width={16} 
-                        height={16}
-                        className="flex-shrink-0"
-                      />
-                    )}
-                    <span className="text-white text-sm">{order.currency}</span>
-                  </div>
-                  <div className={`w-2 h-2 rounded-full ${getStatusColor(order.status)}`}></div>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-center mb-3">
-                <div className="flex items-center space-x-2 border border-[#464646] py-0.5 px-0.5 rounded">
-                  <span className="text-white font-bold bg-[#222] py-0.5 px-1.5 rounded-sm flex items-center space-x-1">
-                    <span>{order.amount}</span>
-                    <span className="text-yellow-500">₹</span>
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    {order.type.includes("Buy") ? (
-                      <Image 
-                        src="/buy.svg" 
-                        alt="Buy" 
-                        width={14} 
-                        height={14}
-                        className="flex-shrink-0"
-                      />
-                    ) : (
-                      <Image 
-                        src="/sell.svg" 
-                        alt="Sell" 
-                        width={14} 
-                        height={14}
-                        className="flex-shrink-0"
-                      />
-                    )}
-                    <span className="text-gray-400 text-sm">{order.type}</span>
+                <div className="flex items-center justify-center mb-2">
+                  <div className="flex items-center space-x-2 border border-[#464646] py-0.5 px-0.5 rounded">
+                    <span className="text-white font-bold bg-[#222] py-0.5 px-1.5 rounded-sm">
+                      {displayAmount}
+                    </span>
+                    <div className="flex items-center space-x-1">
+                      {order.type.includes("Buy") ? (
+                        <Image 
+                          src="/buy.svg" 
+                          alt="Buy" 
+                          width={14} 
+                          height={14}
+                          className="flex-shrink-0"
+                        />
+                      ) : (
+                        <Image 
+                          src="/sell.svg" 
+                          alt="Sell" 
+                          width={14} 
+                          height={14}
+                          className="flex-shrink-0"
+                        />
+                      )}
+                      <span className="text-gray-400 text-sm">{order.type}</span>
+                    </div>
+                    <span className="text-white font-bold bg-[#222] py-0.5 px-1.5 rounded-sm">
+                      {displayConversion}
+                    </span>
                   </div>
-                  <span className="text-white font-bold bg-[#222] py-0.5 px-1.5 rounded-sm flex items-center space-x-1">
-                    <span>{order.price}</span>
-                    <span className="text-purple-500">$</span>
+                </div>
+                
+                <div className="text-center mb-3">
+                  <span className="text-xs text-gray-500">
+                    Rate: ₹{order.orderType.includes('BUY') ? buyRate : sellRate} per USDT
                   </span>
                 </div>
-              </div>
 
-              {activeFilter === "Pending" && order.status === "PENDING" && (
-                <div className="flex space-x-3 justify-end">
-                  <button 
-                    onClick={() => handleAccept(order)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-1 rounded-xs text-sm font-medium transition-all"
-                  >
-                    Accept
-                  </button>
-                  <button 
-                    onClick={() => handleReject(order)}
-                    className="bg-yellow-600 hover:bg-red-700 text-white px-6 py-1 rounded-xs text-sm font-medium transition-all"
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-            </div>
-          ))
+                {activeFilter === "Pending" && order.status === "PENDING" && (
+                  <div className="flex space-x-3 justify-end">
+                    <button 
+                      onClick={() => handleAccept(order)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-1 rounded-xs text-sm font-medium transition-all"
+                    >
+                      Accept
+                    </button>
+                    <button 
+                      onClick={() => handleReject(order)}
+                      className="bg-yellow-600 hover:bg-red-700 text-white px-6 py-1 rounded-xs text-sm font-medium transition-all"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 

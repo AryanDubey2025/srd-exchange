@@ -6,6 +6,7 @@ import { User } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import { useAdminAPI } from '@/hooks/useAdminAPI'
 import { useUserActivity } from '@/hooks/useUserActivity'
+import { useRates } from '@/hooks/useRates'
 import CancelOrderModal from './modal/cancelOrder'
 
 interface Order {
@@ -41,6 +42,7 @@ export default function AdminCenter() {
   const { address } = useAccount()
   const { makeAdminRequest } = useAdminAPI()
   const isUserActive = useUserActivity(5000);
+  const { getBuyRate, getSellRate } = useRates();
   const [lastCenterRefresh, setLastCenterRefresh] = useState(Date.now());
 
   useEffect(() => {
@@ -342,180 +344,174 @@ export default function AdminCenter() {
             )}
           </div>
         ) : (
-          orders.map((order, index) => (
-            <div 
-              key={order.fullId} 
-              className={`rounded-md py-2 px-2 cursor-pointer transition-all duration-200 ${
-                selectedOrderIndex === index
-                  ? 'bg-gradient-to-r from-purple-600/30 to-purple-500/20 border-2 border-purple-500 shadow-lg shadow-purple-500/20'
-                  : 'bg-[#1D1C1C] border-2 border-transparent hover:bg-[#2A2A2A] hover:border-purple-500/30'
-              }`}
-              onClick={() => handleOrderClick(order, index)}
-            >
-              {selectedOrderIndex === index && (
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                    <span className="text-purple-400 text-xs font-medium">SELECTED ORDER</span>
+          orders.map((order, index) => {
+            const buyRate = getBuyRate(order.currency as 'UPI' | 'CDM');
+            const sellRate = getSellRate(order.currency as 'UPI' | 'CDM');
+            
+            let primaryAmount = '';
+            let secondaryAmount = '';
+            let rateDisplay = '';
+            
+            if (order.orderType.includes('BUY')) {
+              const usdtAmount = (order.amount / buyRate).toFixed(6);
+              primaryAmount = `₹${order.amount}`;
+              secondaryAmount = `${usdtAmount} USDT`;
+              rateDisplay = `₹${buyRate}/USDT`;
+            } else {
+              const rupeeAmount = (order.amount * sellRate).toFixed(2);
+              primaryAmount = `${order.amount} USDT`;
+              secondaryAmount = `₹${rupeeAmount}`;
+              rateDisplay = `₹${sellRate}/USDT`;
+            }
+
+            return (
+              <div 
+                key={order.fullId} 
+                className={`rounded-md py-2 px-2 cursor-pointer transition-all duration-200 ${
+                  selectedOrderIndex === index
+                    ? 'bg-gradient-to-r from-purple-600/30 to-purple-500/20 border-2 border-purple-500 shadow-lg shadow-purple-500/20'
+                    : 'bg-[#1D1C1C] border-2 border-transparent hover:bg-[#2A2A2A] hover:border-purple-500/30'
+                }`}
+                onClick={() => handleOrderClick(order, index)}
+              >
+                {selectedOrderIndex === index && (
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                      <span className="text-purple-400 text-xs font-medium">SELECTED ORDER</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleOrderDeselect()
+                      }}
+                      className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
+                    >
+                      Deselect
+                    </button>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleOrderDeselect()
-                    }}
-                    className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded bg-gray-700/50 hover:bg-gray-600/50 transition-colors"
-                  >
-                    Deselect
-                  </button>
-                </div>
-              )}
+                )}
 
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <span className={`text-md font-medium ${
-                    selectedOrderIndex === index ? 'text-white' : 'text-white'
-                  }`}>
-                    {order.id}
-                  </span>
-                  <div className={`text-xs ${
-                    selectedOrderIndex === index ? 'text-purple-200' : 'text-white'
-                  }`}>
-                    {order.time}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className={`text-md font-medium ${
+                      selectedOrderIndex === index ? 'text-white' : 'text-white'
+                    }`}>
+                      {order.id}
+                    </span>
+                    <div className={`text-xs ${
+                      selectedOrderIndex === index ? 'text-purple-200' : 'text-white'
+                    }`}>
+                      {order.time}
+                    </div>
+                    <div className={`text-xs mt-1 ${
+                      selectedOrderIndex === index ? 'text-purple-300' : 'text-gray-400'
+                    }`}>
+                      {order.user.walletAddress.slice(0, 6)}...{order.user.walletAddress.slice(-4)}
+                    </div>
                   </div>
-                  <div className={`text-xs mt-1 ${
-                    selectedOrderIndex === index ? 'text-purple-300' : 'text-gray-400'
+
+                  <div className={`flex items-center space-x-2 border py-0.5 px-0.5 rounded ${
+                    selectedOrderIndex === index ? 'border-purple-400/50' : 'border-[#464646]'
                   }`}>
-                    {order.user.walletAddress.slice(0, 6)}...{order.user.walletAddress.slice(-4)}
+                    <span className={`font-bold py-0.5 px-1.5 rounded-sm ${
+                      selectedOrderIndex === index ? 'bg-purple-800/30 text-white' : 'bg-[#222] text-white'
+                    }`}>
+                      {primaryAmount}
+                    </span>
+                    <div className="flex items-center space-x-1">
+                      <Image 
+                        src={order.type.includes("Buy") ? "/buy.svg" : "/sell.svg"}
+                        alt={order.type.includes("Buy") ? "Buy" : "Sell"}
+                        width={14} 
+                        height={14}
+                        className="flex-shrink-0"
+                      />
+                      <span className={`text-sm ${
+                        selectedOrderIndex === index ? 'text-purple-200' : 'text-gray-400'
+                      }`}>
+                        {order.type}
+                      </span>
+                    </div>
+                    <span className={`font-bold py-0.5 px-1.5 rounded-sm ${
+                      selectedOrderIndex === index ? 'bg-purple-800/30 text-white' : 'bg-[#222] text-white'
+                    }`}>
+                      {secondaryAmount}
+                    </span>
                   </div>
-                </div>
 
-                <div className={`flex items-center space-x-2 border py-0.5 px-0.5 rounded ${
-                  selectedOrderIndex === index ? 'border-purple-400/50' : 'border-[#464646]'
-                }`}>
-                  {order.type.includes("Buy") ? (
-                    <>
-                      <span className={`font-bold py-0.5 px-1.5 rounded-sm flex items-center space-x-1 ${
-                        selectedOrderIndex === index ? 'bg-purple-800/30 text-white' : 'bg-[#222] text-white'
-                      }`}>
-                        <span>{order.amount}</span>
-                        <span className="text-yellow-500">₹</span>
-                      </span>
-                      <div className="flex items-center space-x-1">
-                        <Image 
-                          src="/buy.svg" 
-                          alt="Buy" 
-                          width={14} 
-                          height={14}
-                          className="flex-shrink-0"
-                        />
-                        <span className={`text-sm ${
-                          selectedOrderIndex === index ? 'text-purple-200' : 'text-gray-400'
-                        }`}>
-                          {order.type}
-                        </span>
-                      </div>
-                      <span className={`font-bold py-0.5 px-1.5 rounded-sm flex items-center space-x-1 ${
-                        selectedOrderIndex === index ? 'bg-purple-800/30 text-white' : 'bg-[#222] text-white'
-                      }`}>
-                        <span>{order.price}</span>
-                        <span className="text-purple-500">$</span>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className={`font-bold py-0.5 px-1.5 rounded-sm flex items-center space-x-1 ${
-                        selectedOrderIndex === index ? 'bg-purple-800/30 text-white' : 'bg-[#222] text-white'
-                      }`}>
-                        <span>{order.price}</span>
-                        <span className="text-purple-500">$</span>
-                      </span>
-                      <div className="flex items-center space-x-1">
-                        <Image 
-                          src="/sell.svg" 
-                          alt="Sell" 
-                          width={14} 
-                          height={14}
-                          className="flex-shrink-0"
-                        />
-                        <span className={`text-sm ${
-                          selectedOrderIndex === index ? 'text-purple-200' : 'text-gray-400'
-                        }`}>
-                          {order.type}
-                        </span>
-                      </div>
-                      <span className={`font-bold py-0.5 px-1.5 rounded-sm flex items-center space-x-1 ${
-                        selectedOrderIndex === index ? 'bg-purple-800/30 text-white' : 'bg-[#222] text-white'
-                      }`}>
-                        <span>{order.amount}</span>
-                        <span className="text-yellow-500">₹</span>
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center space-x-1">
-                  {order.currency === "UPI" ? (
-                    <Image 
-                      src="/phonepay-gpay.svg" 
-                      alt="UPI" 
-                      width={20} 
-                      height={12}
-                      className="flex-shrink-0"
-                    />
-                  ) : (
-                    <Image 
-                      src="/bank.svg" 
-                      alt="CDM" 
-                      width={16} 
-                      height={16}
-                      className="flex-shrink-0"
-                    />
-                  )}
-                  <span className={`text-sm ${
-                    selectedOrderIndex === index ? 'text-white font-medium' : 'text-white'
-                  }`}>
-                    {order.currency}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {getOrderTags(order).map((tag, tagIndex) => (
-                  <button
-                    key={tagIndex}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleButtonClick(index, tag)
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation()
-                      if (tag === 'Accepted') {
-                        handleAcceptedDoubleClick(order)
-                      }
-                    }}
-                    className={`px-3 py-1 rounded-xs text-xs font-medium flex items-center space-x-1 transition-all hover:opacity-80 cursor-pointer ${getTagColor(tag, index)} ${
-                      tag === 'Accepted' ? 'hover:bg-red-600' : ''
-                    } ${
-                      selectedOrderIndex === index ? 'shadow-sm' : ''
-                    }`}
-                  >
-                    {hasUserIcon(tag, index) && (
-                      <User className="w-3 h-3" />
+                  <div className="flex items-center space-x-1">
+                    {order.currency === "UPI" ? (
+                      <Image 
+                        src="/phonepay-gpay.svg" 
+                        alt="UPI" 
+                        width={20} 
+                        height={12}
+                        className="flex-shrink-0"
+                      />
+                    ) : (
+                      <Image 
+                        src="/bank.svg" 
+                        alt="CDM" 
+                        width={16} 
+                        height={16}
+                        className="flex-shrink-0"
+                      />
                     )}
-                    <span>{tag}</span>
-                  </button>
-                ))}
-              </div>
-
-              {selectedOrderIndex !== index && (
-                <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="text-xs text-gray-500 text-center">
-                    Click to select and view details →
+                    <span className={`text-sm ${
+                      selectedOrderIndex === index ? 'text-white font-medium' : 'text-white'
+                    }`}>
+                      {order.currency}
+                    </span>
                   </div>
                 </div>
-              )}
-            </div>
-          ))
+
+                <div className="text-center mb-2">
+                  <span className={`text-xs ${
+                    selectedOrderIndex === index ? 'text-purple-300' : 'text-gray-500'
+                  }`}>
+                    Rate: {rateDisplay}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {getOrderTags(order).map((tag, tagIndex) => (
+                    <button
+                      key={tagIndex}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleButtonClick(index, tag)
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        if (tag === 'Accepted') {
+                          handleAcceptedDoubleClick(order)
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-xs text-xs font-medium flex items-center space-x-1 transition-all hover:opacity-80 cursor-pointer ${getTagColor(tag, index)} ${
+                        tag === 'Accepted' ? 'hover:bg-red-600' : ''
+                      } ${
+                        selectedOrderIndex === index ? 'shadow-sm' : ''
+                      }`}
+                    >
+                      {hasUserIcon(tag, index) && (
+                        <User className="w-3 h-3" />
+                      )}
+                      <span>{tag}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedOrderIndex !== index && (
+                  <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="text-xs text-gray-500 text-center">
+                      Click to select and view details →
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 

@@ -122,11 +122,23 @@ export default function SellUPIModal({
             {/* Scrollable Main Content */}
             <div className="overflow-y-auto max-h-[calc(90vh-80px)] md:max-h-[calc(90vh-80px)]">
               <div className="p-4 text-center">
-                {/* Amount Display */}
+             
                 <div className="mb-6">
+ 
                   <div className="text-4xl md:text-4xl font-bold text-white mb-2">
                     {usdtAmount} USDT
                   </div>
+                  
+                  {/* Secondary Amount - Rupees */}
+                  <div className="text-2xl md:text-2xl font-medium text-gray-300 mb-2">
+                    ≈ ₹{amount}
+                  </div>
+                  
+                  {/* Conversion Info */}
+                  <div className="text-xs text-gray-400 mb-2">
+                    You will receive ₹{amount} for {usdtAmount} USDT
+                  </div>
+                  
                   <div className="flex items-center justify-center">
                     <svg
                       className="w-5 h-5 text-white mr-2"
@@ -142,7 +154,7 @@ export default function SellUPIModal({
                       />
                     </svg>
                   </div>
-                  <div className="text-xs text-white mt-2 mb-4">{amount}₹</div>
+                  <div className="text-xs text-white mt-2 mb-4">UPI Sell Order</div>
                 </div>
 
                 {/* Payment Method Badge */}

@@ -33,9 +33,24 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const transformedOrders = user.orders.map(order => ({
+      id: `#${order.id.slice(-6)}`,
+      fullId: order.id,
+      time: formatTime(order.createdAt),
+      amount: Number(order.amount), // Rupees
+      usdtAmount: order.usdtAmount ? Number(order.usdtAmount) : null, // USDT
+      type: getOrderTypeLabel(order.orderType),
+      orderType: order.orderType,
+      price: Number(order.buyRate || order.sellRate || 0),
+      currency: order.orderType === 'BUY_CDM' ? 'CDM' : 'UPI',
+      status: order.status,
+      user: order.user,
+      createdAt: order.createdAt.toISOString()
+    }))
+
     return NextResponse.json({
       success: true,
-      orders: user.orders
+      orders: transformedOrders
     })
   } catch (error) {
     console.error('Error fetching orders:', error)
@@ -55,11 +70,11 @@ export async function POST(request: NextRequest) {
       amount, 
       usdtAmount, 
       buyRate, 
-      sellRate,
+      sellRate, 
       paymentMethod 
     } = await request.json()
 
-    // Validate required fields
+    // Validation
     if (!walletAddress || !orderType || !amount) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -67,24 +82,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find user
-    const user = await prisma.user.findUnique({
+    console.log('Creating order:', {
+      walletAddress,
+      orderType,
+      amount: `₹${amount}`,
+      usdtAmount: `${usdtAmount} USDT`,
+      rate: buyRate || sellRate
+    });
+
+    // Find or create user
+    let user = await prisma.user.findUnique({
       where: { walletAddress: walletAddress.toLowerCase() }
     })
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+      user = await prisma.user.create({
+        data: { 
+          walletAddress: walletAddress.toLowerCase(),
+          role: 'USER'
+        }
+      })
     }
 
-    // Create order
+    // Create order with proper amounts
     const order = await prisma.order.create({
       data: {
         userId: user.id,
-        orderType: orderType, // 'BUY_UPI', 'BUY_CDM', 'SELL'
-        amount: parseFloat(amount),
+        orderType: orderType,
+        amount: parseFloat(amount), 
+        usdtAmount: parseFloat(usdtAmount), 
         buyRate: buyRate ? parseFloat(buyRate) : null,
         sellRate: sellRate ? parseFloat(sellRate) : null,
         status: 'PENDING'
@@ -106,7 +132,8 @@ export async function POST(request: NextRequest) {
       id: `#${order.id.slice(-6)}`,
       fullId: order.id,
       time: formatTime(order.createdAt),
-      amount: Number(order.amount),
+      amount: Number(order.amount), // Rupees
+      usdtAmount: Number(order.usdtAmount), // USDT
       type: getOrderTypeLabel(order.orderType),
       orderType: order.orderType,
       price: Number(order.buyRate || order.sellRate || 0),
@@ -116,19 +143,18 @@ export async function POST(request: NextRequest) {
       createdAt: order.createdAt
     }
 
+    console.log('Order created successfully:', transformedOrder);
+
     return NextResponse.json({
       success: true,
       order: transformedOrder
     })
-
   } catch (error) {
     console.error('Error creating order:', error)
     return NextResponse.json(
       { error: 'Failed to create order' },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }
 

@@ -405,21 +405,39 @@ export default function BuyCDMModal({
                   </motion.div>
                 )}
 
-                {/* Amount Display - Show ₹500 for UPI verification, then main amount */}
+                {/* Amount Display - Show both rupee and USDT values when admin accepts */}
                 <div className="mb-6">
+                  {/* Primary Amount */}
                   <div className="text-4xl md:text-4xl font-bold text-white mb-2">
                     {!isUpiPaid ? '₹500' : `${displayAmount}₹`}
-                    {!isUpiPaid && (
-                      <div className="text-sm text-yellow-400 font-normal">
-                        CDM Order Verification Fee
-                      </div>
-                    )}
-                    {isUpiPaid && hasReceivedAdminDetails && paymentDetails?.customAmount && displayAmount !== amount && (
-                      <div className="text-sm text-green-400 font-normal">
-                        (Custom amount set by admin)
-                      </div>
-                    )}
                   </div>
+                  
+                  {/* Secondary Amount - Show USDT equivalent */}
+                  {hasReceivedAdminDetails && isUpiPaid && (
+                    <div className="text-2xl md:text-2xl font-medium text-gray-300 mb-2">
+                      ≈ {usdtAmount} USDT
+                    </div>
+                  )}
+                  
+                  {/* Status Labels */}
+                  {!isUpiPaid && (
+                    <div className="text-sm text-yellow-400 font-normal mb-2">
+                      CDM Order Verification Fee
+                    </div>
+                  )}
+                  {isUpiPaid && hasReceivedAdminDetails && paymentDetails?.customAmount && displayAmount !== amount && (
+                    <div className="text-sm text-green-400 font-normal mb-2">
+                      (Custom amount set by admin)
+                    </div>
+                  )}
+                  
+                  {/* Conversion Rate Display */}
+                  {hasReceivedAdminDetails && isUpiPaid && (
+                    <div className="text-xs text-gray-400 mb-2">
+                      You will receive {usdtAmount} USDT for ₹{displayAmount}
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-center">
                     <svg
                       className="w-5 h-5 text-white mr-2"
@@ -436,7 +454,7 @@ export default function BuyCDMModal({
                     </svg>
                   </div>
                   <div className="text-xs text-white mt-2 mb-4">
-                    {!isUpiPaid ? 'Verification Payment' : `${usdtAmount} USDT`}
+                    {!isUpiPaid ? 'Verification Payment' : 'CDM Bank Transfer'}
                   </div>
                 </div>
 
