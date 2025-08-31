@@ -12,6 +12,7 @@ import { useAdminContract } from '@/hooks/useAdminContract'
 import { readContract } from '@wagmi/core'
 import { config } from '@/lib/wagmi'
 import { formatUnits } from 'viem'
+import { useWalletManager } from '@/hooks/useWalletManager'
 
 interface Order {
   id: string;
@@ -345,14 +346,13 @@ export default function AdminCenter() {
             console.log('📝 Creating buy order on blockchain...')
             
             // Calculate amounts using the same logic as frontend
-            const { getBuyRate } = useRates()
             const buyRate = getBuyRate(order.currency as 'UPI' | 'CDM')
             const usdtAmount = (order.amount / buyRate).toFixed(6)
-            const usdtAmountWei = parseUnits(usdtAmount, 6) // USDT has 6 decimals
-            const inrAmountWei = parseUnits(order.amount.toString(), 2) // INR with 2 decimals
             
-            // Create buy order on blockchain first
+            // Get the wallet manager functions
             const { createBuyOrderOnChain } = useWalletManager()
+            
+            // Create buy order on blockchain first (the function handles parseUnits internally)
             await createBuyOrderOnChain(usdtAmount, order.amount.toString(), order.orderType)
             
             // Wait for the transaction to be mined
@@ -363,7 +363,8 @@ export default function AdminCenter() {
             
           } catch (buyOrderError) {
             console.error('❌ Error creating/completing buy order:', buyOrderError)
-            throw new Error(`Failed to complete buy order: ${buyOrderError.message}`)
+            const errorMessage = buyOrderError instanceof Error ? buyOrderError.message : String(buyOrderError)
+            throw new Error(`Failed to complete buy order: ${errorMessage}`)
           }
           
           await updateOrderStatus(order.fullId, 'USDT_TRANSFERRED')
