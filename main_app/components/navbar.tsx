@@ -46,12 +46,12 @@ export default function Navbar() {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  const navLinks = ["Futures Trading", "Why us", "FAQ", "Contact us"];
+  const navLinks = ["Futures Trading", "FAQ", "Contact us"];
 
   return (
     <>
       <motion.nav
-        className="w-full bg-black text-white px-4 sm:px-8 py-3 border-b border-gray-800 relative z-40 font-montserrat"
+        className="w-full bg-black text-white px-4 sm:px-8 py-2 border-b border-gray-800 relative z-40 font-montserrat"
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -59,18 +59,18 @@ export default function Navbar() {
         <div className="flex items-center justify-between w-full">
           {/* Logo Section - Far Left */}
           <motion.div
-            className="flex items-center space-x-3"
+            className="flex items-center space-x-2"
             initial={{ x: -50, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div>
               <Image
-                src="/logo.svg"
+                src="/srd_final.svg"
                 alt="SRD Exchange Logo"
                 width={44}
                 height={44}
-                className="w-10 h-10 sm:w-10 sm:h-10 object-contain"
+                className="w-20 h-20 sm:w-20 sm:h-20 object-contain"
               />
             </div>
             <motion.span
@@ -255,7 +255,7 @@ export default function Navbar() {
             <div className="flex items-center space-x-2">
               {/* Twitter/X Icon */}
               <a
-                href="#"
+                href="https://x.com/SrdExchange"
                 className="w-8 h-8 flex items-center justify-center transition-all duration-200"
               >
                 <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -265,7 +265,7 @@ export default function Navbar() {
 
               {/* Telegram Icon */}
               <a
-                href="#"
+                href="https://telegram.me/SrdExchange"
                 className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
               >
                 <img src="/telegram.svg" alt="" className="w-5 h-5" />

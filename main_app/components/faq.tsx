@@ -11,28 +11,32 @@ interface FAQItem {
 
 const faqData: FAQItem[] = [
   {
-    question: "What is a srd Exchange?",
-    answer: "SRD Exchange is a secure, no-KYC P2P trading platform built on the BSC chain. It allows users to trade USDT directly with each other while providing security, better rates, and protection against scams."
+    question: "What is Srd Exchange?",
+    answer: "SRD Exchange is a secure, Decentralized P2P trading platform built on the BSC chain. It allows users to trade USDT ↔ INR directly with each other while providing security, better rates, and protection against scams."
   },
   {
-    question: "Which crypto wallets are compatible with srd Exchange ?",
-    answer: "SRD Exchange is compatible with all major BSC-compatible wallets including MetaMask, Trust Wallet, Binance Chain Wallet, and any wallet that supports BEP-20 tokens."
+    question: "Which Crypto Wallet is compatible with Srd.Exchange?",
+    answer: "SRD Exchange is compatible with all major BSC-compatible wallets including MetaMask, Trust Wallet, Binance Chain Wallet, and any wallet that supports BEP-20 tokens. (Soon Login with Mobile number/Gmail)"
   },
   {
-    question: "What should I do if my bank account gets frozen?",
-    answer: "With our CMD option, we provide a 100% no-freeze guarantee. If any issues arise, our support team is ready to assist you immediately. We have protocols in place to handle and resolve such situations quickly."
+    question: "Which UPI/Bank Account should use with Srd.Exchange?",
+    answer: "We recommend you to use Digital Banks [ Like Airtel Payments Bank, India Post Payments Bank (IPPB), Jio Payments Bank etc] because if your bank account got frozen by any chance no effect on your primary account."
   },
   {
-    question: "How do I pay or receive funds?",
-    answer: "You can pay or receive funds through multiple methods including UPI, bank transfers, and cash deposits. Our platform supports fast and flexible payment options to ensure smooth transactions."
+    question: "What should I Do if my bank account got frozen?",
+    answer: "Firstly, use our CDM method for P2P because there is rare chance for your bank freeze; but if you use UPI, please use your digital banks and have only few moneys there for spend or use for instant ATM cash withdrawal.\n\nIf your bank freeze immediately contacts our support team on mail or on telegram support, we will help you for further quire and try to unfreeze your account."
   },
   {
-    question: "How fast are transactions?",
-    answer: "Transactions are typically completed within minutes. The blockchain confirmation takes a few minutes, and payment processing is also very fast, ensuring you receive your funds quickly."
+    question: "Are these transactions subject to 30% Tax & 1% TDS?",
+    answer: "Yes of course, we are decentralized platform so, we are not report directly to government without any specific demand; It's your responsibility to file your income tax or others tax according to your local law."
   },
   {
-    question: "Are these transactions subject to a 30% tax rate?",
-    answer: "Tax implications depend on your local jurisdiction and tax laws. We recommend consulting with a tax professional regarding your specific situation and local cryptocurrency taxation policies."
+    question: "What's the difference between UPI/CDM, buy/Sell?",
+    answer: "For Buy/Sell, Upi used for paying or receiving payment directly to or by UPI But CDM is used for Cash Deposit Method directly to your bank (slower but secured from bank freeze)."
+  },
+  {
+    question: "How Fast are Transactions?",
+    answer: "For UPI less than 15min and for cdm 1hour30min."
   }
 ]
 
@@ -53,6 +57,10 @@ export default function FAQ() {
 
   const toggleFAQ = (index: number) => {
     setOpenIndex(openIndex === index ? null : index)
+  }
+
+  const handleTelegramClick = () => {
+    window.open('https://telegram.me/SrdExchangeGlobal', '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -136,7 +144,7 @@ export default function FAQ() {
                       className="pb-4"
                     >
                       <div className="h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent mb-3 transition-opacity duration-300"></div>
-                      <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                      <p className="text-gray-400 text-sm md:text-base leading-relaxed whitespace-pre-line">
                         {faq.answer}
                       </p>
                     </motion.div>
@@ -191,6 +199,7 @@ export default function FAQ() {
           </motion.div>
           
           <motion.button 
+            onClick={handleTelegramClick}
             className="bg-black hover:border-[#632dbfc6] border border-[#622DBF] text-white px-3 py-1.5 md:px-4 md:py-2 rounded-md transition-colors duration-200 flex items-center text-xs md:text-sm flex-shrink-0"
             whileHover={!isMobile ? { scale: 1.05, borderColor: "#8b5cf6" } : {}}
             whileTap={{ scale: 0.95 }}
@@ -225,6 +234,10 @@ export function Footer() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const handleTelegramClick = () => {
+    window.open('https://telegram.me/SrdExchangeGlobal', '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <motion.footer 
       className="bg-black text-white border-gray-800"
@@ -255,6 +268,7 @@ export function Footer() {
 
           {/* Telegram Button */}
           <motion.button 
+            onClick={handleTelegramClick}
             className="text-white border border-[#622DBF] px-6 py-3 md:px-8 md:py-4 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm md:text-base"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

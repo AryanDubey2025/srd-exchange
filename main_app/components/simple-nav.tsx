@@ -7,13 +7,13 @@ export default function SimpleNav() {
     <nav className="w-full bg-black border-b border-gray-800 text-white px-8 py-3">
       <div className="flex items-center justify-between w-full">
         {/* Logo Section - Left */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           <Image
-            src="/logo.svg"
+            src="/srd_final.svg"
             alt="SRD Exchange Logo"
             width={20}
             height={20}
-            className="w-10 h-10 object-contain"
+            className="w-20 h-20 object-contain"
           />
           <span className="text-xl font-bold  tracking-tight hidden md:flex md:flex-row">
             SRD Exchange
@@ -25,7 +25,7 @@ export default function SimpleNav() {
           {/* Social Icons */}
           <div className="flex items-center space-x-3">
             {/* Twitter/X Icon */}
-            <a href="#" className="w-8 h-8 flex items-center justify-center transition-all duration-200 hover:scale-110">
+            <a href="https://x.com/SrdExchange" className="w-8 h-8 flex items-center justify-center transition-all duration-200 hover:scale-110">
               <svg 
                 className="w-5 h-5 fill-current text-white" 
                 viewBox="0 0 24 24"
@@ -34,20 +34,13 @@ export default function SimpleNav() {
               </svg>
             </a>
 
-            {/* Telegram Icon */}
-            <a href="#" className="w-8 h-8 flex items-center justify-center transition-all duration-200 hover:scale-110">
-              <img 
-                src="/telegram.svg" 
-                alt="Telegram"
-                className="w-5 h-5"
-              />
-            </a>
+          
           </div>
 
           {/* Help Text */}
-          <span className="text-white font-medium text-base cursor-pointer hover:text-gray-300 transition-colors duration-200">
+          <a href='https://telegram.me/SrdExchangeGlobal' className="text-white font-medium text-base cursor-pointer hover:text-gray-300 transition-colors duration-200">
             Help
-          </span>
+          </a>
         </div>
       </div>
     </nav>

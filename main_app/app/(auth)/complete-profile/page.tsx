@@ -206,14 +206,14 @@ export default function CompleteProfilePage() {
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6"
+              className="w-16 h-16 md:w-20 md:h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6"
             >
-              <CheckCircle2 className="w-12 h-12 text-white" />
+              <CheckCircle2 className="w-10 h-10 md:w-12 md:h-12 text-white" />
             </motion.div>
-            <h1 className="text-3xl font-bold text-white mb-4 font-montserrat">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-4 font-montserrat px-4">
               Profile Completed!
             </h1>
-            <p className="text-gray-400 font-montserrat">
+            <p className="text-gray-400 font-montserrat px-4">
               Redirecting to your dashboard...
             </p>
           </motion.div>
@@ -227,31 +227,31 @@ export default function CompleteProfilePage() {
       {/* Navigation */}
       <SimpleNav />
       
-      {/* Main Content - Left aligned like the image */}
-      <div className="px-4 py-8 max-w-6xl mx-auto">
+      {/* Main Content - Responsive container */}
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-6xl mx-auto">
         <motion.div
           className="rounded-lg overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
           {/* UPI Section */}
-          <div className="w-full p-6 bg-[#111010] border rounded-2xl border-[#3E3E3E]">
-            <div className="flex items-center mb-4">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center mr-2">
-                <img src="/phonepay-gpay.svg" alt="" />
+          <div className="w-full p-4 md:p-6 bg-[#111010] border rounded-2xl border-[#3E3E3E]">
+            <div className="flex flex-col md:flex-row md:items-center mb-4 space-y-2 md:space-y-0">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center md:mr-2 flex-shrink-0">
+                <img src="/phonepay-gpay.svg" alt="" className="w-6 h-6 md:w-8 md:h-8" />
               </div>
-              <span className="text-white font-montserrat text-xl font-semibold">
+              <span className="text-white font-montserrat text-base md:text-xl font-semibold leading-relaxed md:leading-normal">
                 Add your UPI ID to start secure transactions instantly.
               </span>
             </div>
             
-            <div className="relative w-xl">
+            <div className="relative w-full">
               <input
                 type="text"
                 value={upiId}
                 onChange={(e) => handleUpiChange(e.target.value)}
                 placeholder="Paste your UPI ID here"
-                className="w-full bg-[#1E1C1C] rounded-lg px-4 py-3 pr-20 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-[#622DBF]/20 font-montserrat text-sm"
+                className="w-full bg-[#1E1C1C] rounded-lg px-3 py-3 pr-10 md:pr-20 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-[#622DBF]/20 font-montserrat text-sm border border-transparent"
               />
               
               {/* Verified Checkmark */}
@@ -259,12 +259,12 @@ export default function CompleteProfilePage() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1"
+                  className="absolute right-2 md:right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1"
                 >
-                  <span className="text-green-500 text-xs font-montserrat font-medium">
+                  <span className="text-green-500 text-xs font-montserrat font-medium hidden sm:inline">
                     Verified
                   </span>
-                  <Check className="w-4 h-4 text-green-500" />
+                  <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
                 </motion.div>
               )}
             </div>
@@ -276,10 +276,10 @@ export default function CompleteProfilePage() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="mt-3 flex items-center space-x-2"
+                  className="mt-3 flex items-start space-x-2"
                 >
-                  <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                  <span className="text-orange-500 text-sm font-montserrat">
+                  <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-orange-500 text-sm font-montserrat leading-relaxed break-words">
                     {upiValidation.message}
                   </span>
                 </motion.div>
@@ -291,20 +291,20 @@ export default function CompleteProfilePage() {
           <div className="w-full mt-6">
             <button
               onClick={() => setShowBankDetails(!showBankDetails)}
-              className="w-full flex items-center justify-between p-4 bg-[#111010] border rounded-2xl border-[#3E3E3E] hover:bg-[#2a2a2a] transition-colors"
+              className="w-full flex items-center justify-between p-4 md:p-4 bg-[#111010] border rounded-2xl border-[#3E3E3E] hover:bg-[#2a2a2a] transition-colors"
             >
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3">
-                  <img src="/bank.svg" alt="" />
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                  <img src="/bank.svg" alt="" className="w-6 h-6 md:w-8 md:h-8" />
                 </div>
-                <span className="text-white font-semibold font-montserrat text-xl">
+                <span className="text-white font-semibold font-montserrat text-base md:text-xl text-left leading-relaxed">
                   Add bank details for CDM (Cash Deposit) Transactions.
                 </span>
               </div>
               {showBankDetails ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
+                <ChevronUp className="w-5 h-5 text-gray-400 flex-shrink-0" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
               )}
             </button>
 
@@ -322,7 +322,7 @@ export default function CompleteProfilePage() {
                       {/* Account Holder Name */}
                       <div>
                         <label className="flex items-center text-white text-xs mb-2 font-montserrat">
-                          <User className="w-3 h-3 mr-2" />
+                          <User className="w-3 h-3 mr-2 flex-shrink-0" />
                           Account Holder Name
                         </label>
                         <input
@@ -330,14 +330,14 @@ export default function CompleteProfilePage() {
                           value={bankDetails.accountHolderName}
                           onChange={(e) => handleBankDetailsChange("accountHolderName", e.target.value)}
                           placeholder="John Doe"
-                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
+                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
                         />
                       </div>
 
                       {/* Account Number */}
                       <div>
                         <label className="flex items-center text-white text-xs mb-2 font-montserrat">
-                          <FileText className="w-3 h-3 mr-2" />
+                          <FileText className="w-3 h-3 mr-2 flex-shrink-0" />
                           Account Number
                         </label>
                         <input
@@ -345,14 +345,14 @@ export default function CompleteProfilePage() {
                           value={bankDetails.accountNumber}
                           onChange={(e) => handleBankDetailsChange("accountNumber", e.target.value)}
                           placeholder="1234567890123456"
-                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
+                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
                         />
                       </div>
 
                       {/* Confirm Account Number */}
                       <div>
                         <label className="flex items-center text-white text-xs mb-2 font-montserrat">
-                          <FileText className="w-3 h-3 mr-2" />
+                          <FileText className="w-3 h-3 mr-2 flex-shrink-0" />
                           Confirm Account Number
                         </label>
                         <input
@@ -360,14 +360,14 @@ export default function CompleteProfilePage() {
                           value={bankDetails.confirmAccountNumber}
                           onChange={(e) => handleBankDetailsChange("confirmAccountNumber", e.target.value)}
                           placeholder="Re-enter account number"
-                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
+                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
                         />
                       </div>
 
                       {/* IFSC Code */}
                       <div>
                         <label className="flex items-center text-white text-xs mb-2 font-montserrat">
-                          <Building className="w-3 h-3 mr-2" />
+                          <Building className="w-3 h-3 mr-2 flex-shrink-0" />
                           IFSC Code
                         </label>
                         <input
@@ -375,14 +375,14 @@ export default function CompleteProfilePage() {
                           value={bankDetails.ifscCode}
                           onChange={(e) => handleBankDetailsChange("ifscCode", e.target.value.toUpperCase())}
                           placeholder="ICIC0001234"
-                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
+                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
                         />
                       </div>
 
                       {/* Branch Name */}
                       <div>
                         <label className="flex items-center text-white text-xs mb-2 font-montserrat">
-                          <MapPin className="w-3 h-3 mr-2" />
+                          <MapPin className="w-3 h-3 mr-2 flex-shrink-0" />
                           Branch Name
                         </label>
                         <input
@@ -390,7 +390,7 @@ export default function CompleteProfilePage() {
                           value={bankDetails.branchName}
                           onChange={(e) => handleBankDetailsChange("branchName", e.target.value)}
                           placeholder="Mumbai Central"
-                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
+                          className="w-full bg-[#2a2a2a] border border-gray-600 rounded-md px-3 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#622DBF] font-montserrat text-sm"
                         />
                       </div>
                     </div>
@@ -408,18 +408,18 @@ export default function CompleteProfilePage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <p className="text-red-400 text-sm font-montserrat">{error}</p>
+            <p className="text-red-400 text-sm font-montserrat leading-relaxed">{error}</p>
           </motion.div>
         )}
 
-        {/* Action Buttons */}
-        <div className="mt-6 flex items-center justify-end space-x-4">
+        {/* Action Buttons - Mobile Responsive */}
+        <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-end space-y-3 sm:space-y-0 sm:space-x-4">
           {/* Skip CDM for Now - Only show when bank details are NOT complete */}
           {(!isBankDetailsComplete()) && (
             <button
               onClick={() => handleSubmit(true)}
               disabled={isSubmitting || !upiValidation.isValid}
-              className="text-white hover:text-gray-300 font-montserrat text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto text-white hover:text-gray-300 font-montserrat text-sm disabled:opacity-50 disabled:cursor-not-allowed text-center py-2 sm:py-0"
             >
               {isSubmitting ? "Saving..." : "Skip CDM for Now"}
             </button>
@@ -430,7 +430,7 @@ export default function CompleteProfilePage() {
             <button
               onClick={() => handleSubmit(false)}
               disabled={isSubmitting || !upiValidation.isValid}
-              className="text-white hover:text-gray-300 px-4 py-2 rounded-lg bg-[#622DBF] hover:bg-[#7C3AED] font-montserrat text-sm flex items-center space-x-2"
+              className="w-full sm:w-auto text-white hover:text-gray-300 px-6 py-3 rounded-lg bg-[#622DBF] hover:bg-[#7C3AED] font-montserrat text-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>

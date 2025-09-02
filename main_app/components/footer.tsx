@@ -18,6 +18,10 @@ export default function Footer() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const handleTelegramClick = () => {
+    window.open('https://telegram.me/SrdExchangeGlobal', '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <motion.footer 
       className="bg-black text-white border-gray-800"
@@ -51,6 +55,7 @@ export default function Footer() {
 
             {/* Telegram Button */}
             <motion.button 
+              onClick={handleTelegramClick}
               className="text-white border border-[#622DBF] px-6 py-3 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -76,6 +81,17 @@ export default function Footer() {
             >
               <Headset className="w-4 h-4"/>
               <span className="text-gray-400 text-sm">24 x 7 Support</span>
+            </motion.div>
+
+            {/* Copyright Text */}
+            <motion.div 
+              className="text-gray-400 text-sm"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
+              viewport={{ once: true }}
+            >
+              Copyright 2025 @ SRD Exchange
             </motion.div>
 
           </div>
@@ -109,6 +125,7 @@ export default function Footer() {
             viewport={{ once: true }}
           >
             <motion.button 
+              onClick={handleTelegramClick}
               className="text-white border border-[#622DBF] px-6 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
               whileHover={{ scale: 1.05, borderColor: "#8b5cf6" }}
               whileTap={{ scale: 0.95 }}
@@ -138,6 +155,17 @@ export default function Footer() {
               </motion.div>
               <span className="text-gray-400 text-sm">24 x 7 Support</span>
             </motion.div>
+
+            <motion.div 
+              className="text-gray-400 text-sm"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              viewport={{ once: true }}
+            >
+              Copyright 2025 @ SRD Exchange
+            </motion.div>
+
           </motion.div>
         </div>
 

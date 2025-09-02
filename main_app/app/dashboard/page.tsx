@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import React from 'react';
+import Footer from '@/components/footer';
 
 export default function Dashboard() {
     const { disconnect } = useDisconnect();
@@ -66,6 +67,7 @@ export default function Dashboard() {
                 </div>
                 <BuySellSection />
                 <Orders />
+                <Footer />
             </div>
         </AuthGuard>
     );

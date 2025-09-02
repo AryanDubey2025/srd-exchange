@@ -309,9 +309,9 @@ export default function SellUPIModal({
                     <div className="w-60 md:w-80 bg-gray-700 rounded-full h-2 mb-2">
                       <div className="bg-[#622DBF] h-2 rounded-full w-3/4"></div>
                     </div>
-                    <div className="text-white text-sm font-medium">
+                    {/* <div className="text-white text-sm font-medium">
                       14 : 34 Left
-                    </div>
+                    </div> */}
                   </div>
                 )}
 

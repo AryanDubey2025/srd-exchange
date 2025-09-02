@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useConnect, useAccount, useDisconnect } from 'wagmi'
-import { X, ChevronRight, CheckCircle2, Wallet, RefreshCw, Copy, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react'
+import { X, ChevronRight, CheckCircle2, Wallet, RefreshCw, Copy, ExternalLink, TrendingUp, TrendingDown, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useWalletManager } from '@/hooks/useWalletManager'
 
@@ -54,6 +54,7 @@ export default function WalletConnectModal({
 
   const [selectedConnector, setSelectedConnector] = useState<string | null>(null)
   const [authStep, setAuthStep] = useState<'connect' | 'authenticating' | 'switching' | 'success'>('connect')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   useEffect(() => {
     if (isConnected && address) {
@@ -133,7 +134,7 @@ export default function WalletConnectModal({
   }
 
   const handleConnect = async (walletOption: any) => {
-    if (walletOption.disabled) return
+    if (walletOption.disabled || !acceptedTerms) return
     
     setSelectedConnector(walletOption.id)
     
@@ -288,19 +289,22 @@ export default function WalletConnectModal({
                 {walletOptions.map((wallet) => {
                   const isLoading = selectedConnector === wallet.id
                   const isComingSoon = wallet.status === 'Coming soon'
+                  const isDisabled = isLoading || isComingSoon || status === 'pending' || !acceptedTerms
                   
                   return (
                     <motion.button
                       key={wallet.id}
                       onClick={() => handleConnect(wallet)}
-                      disabled={isLoading || isComingSoon || status === 'pending'}
+                      disabled={isDisabled}
                       className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
                         isComingSoon 
                           ? 'bg-gray-900/50 border-gray-700/50 cursor-not-allowed opacity-60'
+                          : !acceptedTerms
+                          ? 'bg-gray-900/50 border-gray-700/50 cursor-not-allowed opacity-60'
                           : 'bg-gray-900/80 border-gray-700 hover:border-gray-600 hover:bg-gray-800/80'
                       }`}
-                      whileHover={!isComingSoon ? { scale: 1.02 } : {}}
-                      whileTap={!isComingSoon ? { scale: 0.98 } : {}}
+                      whileHover={!isDisabled ? { scale: 1.02 } : {}}
+                      whileTap={!isDisabled ? { scale: 0.98 } : {}}
                     >
                       <div className="flex items-center space-x-4">
                         <div className="text-2xl">
@@ -330,6 +334,42 @@ export default function WalletConnectModal({
                 })}
               </div>
 
+              {/* Terms and Conditions Checkbox */}
+              <div className="mt-6 p-4 bg-gray-900/50 rounded-xl border border-gray-700/50">
+                <div className="flex items-start space-x-3">
+                  <button
+                    onClick={() => setAcceptedTerms(!acceptedTerms)}
+                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
+                      acceptedTerms
+                        ? 'bg-[#622DBF] border-[#622DBF]'
+                        : 'border-gray-600 hover:border-gray-500'
+                    }`}
+                  >
+                    {acceptedTerms && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Check className="w-3 h-3 text-white" />
+                      </motion.div>
+                    )}
+                  </button>
+                  <div className="flex-1">
+                    <p className="text-gray-300 text-sm leading-relaxed">
+                      I have read and accept the{' '}
+                      <button className="text-[#622DBF] hover:text-purple-400 underline transition-colors">
+                        Terms of Use
+                      </button>{' '}
+                      and{' '}
+                      <button className="text-[#622DBF] hover:text-purple-400 underline transition-colors">
+                        Privacy Policy
+                      </button>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Error Display */}
               {error && (
                 <motion.div
@@ -343,13 +383,27 @@ export default function WalletConnectModal({
                 </motion.div>
               )}
 
+              {/* Terms Required Message */}
+              {!acceptedTerms && (
+                <motion.div
+                  className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <p className="text-yellow-400 text-sm text-center">
+                    Please accept the Terms of Use and Privacy Policy to continue
+                  </p>
+                </motion.div>
+              )}
+
               {/* Footer */}
               <div className="mt-8 pt-6 border-t border-gray-800">
                 <div className="text-center">
+                  <a className='text-white'>Watch Tutorial</a>
                   <span className="text-gray-400">Having issues? </span>
-                  <button className="text-blue-400 hover:text-blue-300 underline transition-colors">
+                  <a href='https://telegram.me/SrdExchangeGlobal' target='_blank' className="text-blue-400 hover:text-blue-300 underline transition-colors">
                     Connect us
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
