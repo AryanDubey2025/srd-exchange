@@ -156,8 +156,8 @@ export async function POST(request: NextRequest) {
 
 function determineUserRole(walletAddress: string): 'USER' | 'ADMIN' {
   const adminWallets = [
-    '0x53840D9fb1cc325905F5ED8bd4d5246853d9A426', 
-    '0x7D1fA83644B854Dd948D507119aFdC1b071f7115',
+    '0x53840D9fb1cc325905F5ED8bd4d5246853d9A426',
+    '0x68921410bd83A958e45Cf18e83fAecfDFcB80C3a',
     
     
     '0x3d2af21e067675967fb6c35707d8c073dc203721'

@@ -37,13 +37,39 @@ interface Order {
   };
 }
 
-// Update to match useWalletManager.ts:
+// Add USDT contract info
 const CONTRACTS = {
+  USDT: {
+    [56]: "0x55d398326f99059fF775485246999027B3197955" as `0x${string}`, // BSC Mainnet USDT
+  },
   P2P_TRADING: {
-    [56]: "0x0000000000000000000000000000000000000000" as `0x${string}`, // Update with mainnet address when deployed
-    [97]: "0xF0913DEab11B8938EB82cc1DA1CEA433006DC71C" as `0x${string}`, // Your testnet address
+    [56]: "0xD64d78dCFc550F131813a949c27b2b439d908F54" as `0x${string}`, // Mainnet only
   },
 };
+
+// Add USDT ABI for allowance and approval
+const USDT_ABI = [
+  {
+    inputs: [
+      { internalType: 'address', name: 'owner', type: 'address' },
+      { internalType: 'address', name: 'spender', type: 'address' },
+    ],
+    name: 'allowance',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'spender', type: 'address' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    ],
+    name: 'approve',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const;
 
 const P2P_TRADING_ABI = [
   {
@@ -158,6 +184,20 @@ export default function AdminCenter() {
   const { getBuyRate, getSellRate } = useRates();
   const [lastCenterRefresh, setLastCenterRefresh] = useState(Date.now());
 
+  // Add approval state management
+  const [adminApprovalState, setAdminApprovalState] = useState<{
+    [orderIndex: number]: "none" | "approving" | "approved" | "failed";
+  }>({});
+
+  // Force BSC mainnet check
+  useEffect(() => {
+    if (chainId && chainId !== 56) {
+      console.warn(
+        `⚠️ Admin center requires BSC Mainnet (56), currently on chain ${chainId}`
+      );
+    }
+  }, [chainId]);
+
   // Import all wallet manager functions at the top level
   const {
     createBuyOrderOnChain,
@@ -166,7 +206,8 @@ export default function AdminCenter() {
     verifyPaymentOnChain,
     approveOrderOnChain,
     transferUSDT,
-    adminExecuteSellTransfer, // Add this
+    approveUSDT,
+    adminExecuteSellTransfer,
     hash: walletHash,
     isPending: walletPending,
   } = useWalletManager();
@@ -345,14 +386,133 @@ export default function AdminCenter() {
     return hashId;
   };
 
+  // Update the approval function
+  const approveAdminUSDT = async (orderIndex: number): Promise<boolean> => {
+    if (!address || chainId !== 56) return false;
+
+    try {
+      setAdminApprovalState((prev) => ({
+        ...prev,
+        [orderIndex]: "approving",
+      }));
+
+      const order = orders[orderIndex];
+      const usdtAmountToTransfer = order.usdtAmount
+        ? order.usdtAmount.toString()
+        : (order.amount / getBuyRate(order.currency as "UPI" | "CDM")).toFixed(6);
+
+      console.log("🔓 Admin approving USDT for Gas Station address...", {
+        adminAddress: address,
+        requiredAmount: usdtAmountToTransfer,
+        gasStationAddress: "0x1dA2b030808D46678284dB112bfe066AA9A8be0E"
+      });
+
+      const GAS_STATION_ADDRESS = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
+      
+      const approveAmount = "500000000"; // 10M USDT
+
+      console.log("🔓 Approving large amount for multiple future transactions:", {
+        approveAmount,
+        gasStation: GAS_STATION_ADDRESS
+      });
+
+      await approveUSDT(
+        GAS_STATION_ADDRESS as `0x${string}`,
+        approveAmount
+      );
+
+      console.log("⏳ Waiting for Gas Station approval transaction...");
+      await new Promise((resolve) => setTimeout(resolve, 15000)); // Wait longer
+
+      // Verify approval worked
+      const isApproved = await checkAdminApproval(orderIndex);
+
+      setAdminApprovalState((prev) => ({
+        ...prev,
+        [orderIndex]: isApproved ? "approved" : "failed",
+      }));
+
+      if (isApproved) {
+        console.log("✅ Gas Station USDT approval successful");
+      } else {
+        console.error("❌ Gas Station approval verification failed");
+      }
+
+      return isApproved;
+    } catch (error) {
+      console.error("❌ Gas Station USDT approval failed:", error);
+      setAdminApprovalState((prev) => ({
+        ...prev,
+        [orderIndex]: "failed",
+      }));
+      return false;
+    }
+  };
+
+  // Update the approval check function
+  const checkAdminApproval = async (orderIndex: number): Promise<boolean> => {
+    if (!address || chainId !== 56) return false;
+
+    try {
+      const order = orders[orderIndex];
+      const usdtAmountWei = parseUnits(
+        order.usdtAmount
+          ? order.usdtAmount.toString()
+          : (order.amount / getBuyRate(order.currency as "UPI" | "CDM")).toFixed(6),
+        6
+      );
+
+      // 🔥 FIX: Check allowance for Gas Station address
+      const GAS_STATION_ADDRESS = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
+
+      const currentAllowance = await readContract(config as any, {
+        address: CONTRACTS.USDT[56],
+        abi: [
+          {
+            inputs: [
+              { internalType: "address", name: "owner", type: "address" },
+              { internalType: "address", name: "spender", type: "address" },
+            ],
+            name: "allowance",
+            outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+            stateMutability: "view",
+            type: "function",
+          },
+        ],
+        functionName: "allowance",
+        args: [address, GAS_STATION_ADDRESS], // Check Gas Station allowance
+      });
+
+      console.log("🔍 Admin approval check for Gas Station:", {
+        required: formatUnits(usdtAmountWei, 6),
+        approved: formatUnits(currentAllowance, 6),
+        sufficient: currentAllowance >= usdtAmountWei,
+        gasStationAddress: GAS_STATION_ADDRESS
+      });
+
+      return currentAllowance >= usdtAmountWei;
+    } catch (error) {
+      console.error("❌ Error checking Gas Station approval:", error);
+      return false;
+    }
+  };
+
+  // Update the approval strategy
   const handleButtonClick = async (orderIndex: number, tag: string) => {
     const order = orders[orderIndex];
     const currentStatus = orderStatuses[orderIndex]?.[tag];
 
-    console.log("🎯 Button clicked:", {
+    // Force mainnet check
+    if (chainId !== 56) {
+      alert("Please switch to BSC Mainnet (Chain ID 56) to process orders");
+      return;
+    }
+
+    console.log("🎯 Button clicked (BSC Mainnet):", {
       tag,
       orderIndex,
       currentStatus,
+      chainId: 56,
       order: {
         fullId: order.fullId,
         orderType: order.orderType,
@@ -363,96 +523,176 @@ export default function AdminCenter() {
     });
 
     try {
-      // Handle "Execute Transfer" button for sell orders (don't change this)
-      if (
-        tag.toLowerCase() === "execute transfer" &&
-        order.orderType.includes("SELL")
-      ) {
-        console.log("🔗 Executing admin-paid sell transfer...");
-
-        try {
-          // Execute the transfer with admin paying gas
-          await adminExecuteSellTransfer(
-            order.user.walletAddress as `0x${string}`,
-            order.usdtAmount?.toString() || "0",
-            order.amount.toString(),
-            order.orderType
-          );
-
-          // Wait for transaction to complete
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-
-          // Update order status to completed
-          await updateOrderStatus(order.fullId, "PAYMENT_VERIFIED");
-
-          setOrderStatuses((prev) => ({
-            ...prev,
-            [orderIndex]: {
-              ...prev[orderIndex],
-              [tag]: "completed",
-            },
-          }));
-
-          console.log("✅ Admin-paid sell transfer completed");
-        } catch (transferError) {
-          console.error("❌ Admin transfer execution failed:", transferError);
-          const errorMessage =
-            transferError instanceof Error
-              ? transferError.message
-              : String(transferError);
-          throw new Error(`Failed to execute admin transfer: ${errorMessage}`);
-        }
-
-        return;
-      }
-
       // Handle blockchain interactions for verified button
       if (tag.toLowerCase() === "verified" && !currentStatus) {
         console.log("🔗 First verified button clicked...");
 
+        // Update the buy order handling with approval check
         if (order.orderType.includes("BUY")) {
-          console.log("💰 BUY ORDER: Processing direct admin to user USDT transfer...");
-        
+          console.log(
+            "💰 BUY ORDER: Processing via Gas Station on BSC Mainnet..."
+          );
+
           try {
-            // Calculate the USDT amount from the rupee amount
             const buyRate = getBuyRate(order.currency as "UPI" | "CDM");
             const usdtAmountToTransfer = order.usdtAmount
               ? order.usdtAmount.toString()
               : (order.amount / buyRate).toFixed(6);
-        
-            console.log("📊 Buy order transfer details:", {
+
+            console.log("📊 Buy order transfer details (BSC Mainnet):", {
               orderAmount: order.amount,
               usdtAmountToTransfer,
               buyRate,
               orderType: order.orderType,
+              useGasStation: true,
+              chainId: 56,
             });
-        
-            // Direct USDT transfer from admin to user (no blockchain order creation needed)
-            console.log("💸 Transferring USDT directly from admin to user...");
+
+            // Step 1: Check if admin has sufficient USDT allowance
+            console.log("🔍 Step 1: Checking admin USDT allowance...");
+            const hasApproval = await checkAdminApproval(orderIndex);
+
+            if (!hasApproval) {
+              console.log("🔓 Admin needs one-time USDT approval...");
+
+              // Show one-time approval modal
+              const shouldApprove = confirm(
+                `🔐 ONE-TIME SETUP REQUIRED\n\n` +
+                  `To enable Gas Station transfers, you need to approve USDT spending once.\n\n` +
+                  `✅ You pay gas for this approval (~$0.20)\n` +
+                  `✅ Gas Station pays gas for all future transfers\n` +
+                  `✅ Approving 1,000,000 USDT for future orders\n\n` +
+                  `Current order: ${usdtAmountToTransfer} USDT\n\n` +
+                  `Click OK to approve (one-time only)`
+              );
+
+              if (!shouldApprove) {
+                console.log("❌ Admin approval cancelled by user");
+                return;
+              }
+
+              // Admin pays gas for this one approval
+              setOrderStatuses((prev) => ({
+                ...prev,
+                [orderIndex]: {
+                  ...prev[orderIndex],
+                  [tag]: "waiting",
+                },
+              }));
+
+              console.log(
+                "🔓 Admin performing one-time USDT approval (admin pays gas)..."
+              );
+
+              try {
+                // Large approval amount (1M USDT) for future transactions
+                await approveAdminUSDT(orderIndex);
+
+                console.log("⏳ Waiting for admin approval transaction...");
+                await new Promise((resolve) => setTimeout(resolve, 10000));
+
+                // Verify approval worked
+                const isApproved = await checkAdminApproval(orderIndex);
+                if (!isApproved) {
+                  throw new Error("USDT approval verification failed");
+                }
+
+                console.log("✅ One-time admin USDT approval successful");
+              } catch (approvalError) {
+                console.error("❌ Admin USDT approval failed:", approvalError);
+                setOrderStatuses((prev) => ({
+                  ...prev,
+                  [orderIndex]: {
+                    ...prev[orderIndex],
+                    [tag]: undefined,
+                  },
+                }));
+
+                const errorMessage =
+                  approvalError instanceof Error
+                    ? approvalError.message
+                    : String(approvalError);
+
+                if (errorMessage.includes("User rejected")) {
+                  throw new Error(
+                    "Approval cancelled by user. Please approve USDT spending to continue."
+                  );
+                } else {
+                  throw new Error(`USDT approval failed: ${errorMessage}`);
+                }
+              }
+            }
+
+            // Step 2: Now Gas Station executes the transfer (Gas Station pays gas)
+            console.log(
+              "🚀 Step 2: Gas Station executing transfer (Gas Station pays gas)..."
+            );
+
             await transferUSDT(
               order.user.walletAddress as `0x${string}`,
-              usdtAmountToTransfer
+              usdtAmountToTransfer,
+              true // Use Gas Station
             );
-        
-            // Wait for transaction to complete
-            console.log("⏳ Waiting for USDT transfer completion...");
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-        
-            // Update database status
+
+            console.log(
+              "⏳ Waiting for Gas Station transaction confirmation..."
+            );
+            await new Promise((resolve) => setTimeout(resolve, 8000));
+
             await updateOrderStatus(order.fullId, "PAYMENT_VERIFIED");
-        
-            console.log("✅ Buy order verified - USDT transferred to user");
-        
+
+            console.log(
+              "✅ Buy order completed - Admin approved once, Gas Station paid gas for transfer"
+            );
+
+            setOrderStatuses((prev) => ({
+              ...prev,
+              [orderIndex]: {
+                ...prev[orderIndex],
+                [tag]: "completed",
+              },
+            }));
           } catch (blockchainError) {
-            console.error("❌ Buy order transfer failed:", blockchainError);
-            const errorMessage = blockchainError instanceof Error ? blockchainError.message : String(blockchainError);
-        
-            if (errorMessage.includes("Insufficient USDT balance")) {
-              throw new Error("Admin has insufficient USDT balance to complete this buy order. Please add USDT to admin wallet.");
+            console.error(
+              "❌ Gas Station buy order transfer failed:",
+              blockchainError
+            );
+
+            // Reset button state on error
+            setOrderStatuses((prev) => ({
+              ...prev,
+              [orderIndex]: {
+                ...prev[orderIndex],
+                [tag]: undefined,
+              },
+            }));
+
+            const errorMessage =
+              blockchainError instanceof Error
+                ? blockchainError.message
+                : String(blockchainError);
+
+            // Enhanced error handling for Gas Station
+            if (errorMessage.includes("Admin USDT approval failed")) {
+              throw new Error(
+                "Admin USDT approval failed. Please ensure your wallet is connected and try again."
+              );
+            } else if (errorMessage.includes("Gas Station not ready")) {
+              throw new Error(
+                "Gas Station is not ready on BSC Mainnet. Please contact support or try again later."
+              );
+            } else if (errorMessage.includes("Gas Station is disabled")) {
+              throw new Error(
+                "Gas Station is currently disabled. Please try again later."
+              );
+            } else if (errorMessage.includes("Insufficient USDT balance")) {
+              throw new Error(
+                "Admin has insufficient USDT balance to complete this buy order."
+              );
             } else if (errorMessage.includes("insufficient allowance")) {
-              throw new Error("Admin needs to approve USDT spending. Please check admin wallet USDT allowance.");
-            } else if (errorMessage.includes("User rejected")) {
-              throw new Error("Transaction was rejected by admin. Buy order not completed.");
+              throw new Error(
+                "Admin USDT allowance insufficient. Please approve USDT spending first."
+              );
             } else {
               throw new Error(`Buy order transfer failed: ${errorMessage}`);
             }
@@ -464,47 +704,6 @@ export default function AdminCenter() {
           await updateOrderStatus(order.fullId, "PAYMENT_VERIFIED");
           console.log("✅ Sell order verified - USDT transferred to admin");
         }
-
-        setOrderStatuses((prev) => ({
-          ...prev,
-          [orderIndex]: {
-            ...prev[orderIndex],
-            [tag]: "completed",
-          },
-        }));
-
-        return;
-      }
-
-      // Handle "Send Payment" button for sell orders (don't change this)
-      if (
-        tag.toLowerCase() === "send payment" &&
-        order.orderType.includes("SELL")
-      ) {
-        console.log("💸 Admin sending payment to user...");
-
-        // Update order status to indicate payment is being sent
-        await updateOrderStatus(order.fullId, "ADMIN_SENT_PAYMENT_INFO");
-
-        setOrderStatuses((prev) => ({
-          ...prev,
-          [orderIndex]: {
-            ...prev[orderIndex],
-            [tag]: "completed",
-          },
-        }));
-
-        return;
-      }
-
-      // Handle "Payment Sent" confirmation (don't change this)
-      if (
-        tag.toLowerCase() === "payment sent" &&
-        order.orderType.includes("SELL")
-      ) {
-        console.log("✅ Admin confirming payment sent...");
-
-        await updateOrderStatus(order.fullId, "COMPLETED");
 
         setOrderStatuses((prev) => ({
           ...prev,
@@ -561,22 +760,17 @@ export default function AdminCenter() {
       let errorMessage = "Transaction failed.";
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      if (errorMsg.includes("Failed to execute admin transfer")) {
+      if (errorMsg.includes("Admin USDT approval failed")) {
         errorMessage =
-          "Admin transfer execution failed. Please check admin wallet balance and connection.";
+          "Admin USDT approval failed. Please ensure your wallet is connected and has sufficient BNB for gas fees.";
       } else if (errorMsg.includes("insufficient")) {
         errorMessage =
           "Insufficient balance. Please ensure admin has enough USDT and BNB for gas fees.";
       } else if (errorMsg.includes("Wallet not connected")) {
         errorMessage = "Please connect your admin wallet.";
-      } else if (errorMsg.includes("Buy order blockchain transfer failed")) {
+      } else if (errorMsg.includes("Admin USDT allowance insufficient")) {
         errorMessage =
-          "Buy order USDT transfer failed. Please check admin USDT balance and allowance.";
-      } else if (errorMsg.includes("Admin has insufficient USDT balance")) {
-        errorMessage =
-          "Admin wallet has insufficient USDT balance to complete this buy order.";
-      } else if (errorMsg.includes("Admin needs to approve USDT spending")) {
-        errorMessage = "Admin needs to approve USDT spending in wallet first.";
+          "Admin needs to approve USDT spending. Please use the approve button and try again.";
       }
 
       alert(`${errorMessage}\n\nDetailed error: ${errorMsg}`);
@@ -739,6 +933,16 @@ export default function AdminCenter() {
 
   return (
     <div className="bg-[#141414] text-white h-full py-4 px-2 overflow-y-auto">
+      {/* Add mainnet warning */}
+      {chainId && chainId !== 56 && (
+        <div className="mb-4 p-3 bg-red-600/20 border border-red-600/50 rounded text-sm text-red-300">
+          <div className="font-medium">Wrong Network</div>
+          <div>
+            Please switch to BSC Mainnet (Chain ID 56) to use admin functions
+          </div>
+        </div>
+      )}
+
       <div className="flex bg-[#1E1E1E] rounded-sm items-center justify-center mb-6 space-x-2">
         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
         <h2 className="text-lg font-semibold text-white p-2">
@@ -974,6 +1178,30 @@ export default function AdminCenter() {
                     Rate: {rateDisplay}
                   </span>
                 </div>
+
+                {/* Add approval status indicator for buy orders */}
+                {order.orderType.includes("BUY") && (
+                  <div className="mb-2 text-xs">
+                    {adminApprovalState[index] === "approving" && (
+                      <div className="text-yellow-400 flex items-center space-x-1">
+                        <div className="w-3 h-3 border border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Approving USDT...</span>
+                      </div>
+                    )}
+                    {adminApprovalState[index] === "approved" && (
+                      <div className="text-green-400 flex items-center space-x-1">
+                        <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                        <span>USDT Approved</span>
+                      </div>
+                    )}
+                    {adminApprovalState[index] === "failed" && (
+                      <div className="text-red-400 flex items-center space-x-1">
+                        <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                        <span>Approval Failed</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2">
                   {getOrderTags(order).map((tag, tagIndex) => (

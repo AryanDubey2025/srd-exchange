@@ -1,20 +1,20 @@
-import { useAccount, useBalance, useChainId, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { useState, useEffect } from 'react'
-import { bsc, bscTestnet } from 'wagmi/chains'
-import { formatUnits, parseUnits, Address } from 'viem'
-// Add missing imports
-import { readContract, simulateContract, waitForTransactionReceipt } from '@wagmi/core'
-import { config } from '@/lib/wagmi' // Import your wagmi config
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId, useSwitchChain } from 'wagmi'
+import { parseUnits, formatUnits, Address } from 'viem'
+import { bsc } from 'wagmi/chains' // Only import BSC mainnet
+import { config } from '@/lib/wagmi'
+import { readContract, simulateContract } from '@wagmi/core'
 
-// Contract addresses - Updated to support both networks
+// Add Gas Station import
+const GAS_STATION_ENABLED = process.env.NEXT_PUBLIC_GAS_STATION_ENABLED === 'true'
+
+// Contract addresses - MAINNET ONLY
 const CONTRACTS = {
   USDT: {
-    [56]: '0x55d398326f99059fF775485246999027B3197955' as Address, // BSC USDT
-    [97]: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd' as Address, // BSC Testnet USDT
+    [56]: '0x55d398326f99059fF775485246999027B3197955' as Address, // BSC Mainnet only
   },
   P2P_TRADING: {
-    [56]: '0x0000000000000000000000000000000000000000' as Address, // Deploy and update
-    [97]: '0xF0913DEab11B8938EB82cc1DA1CEA433006DC71C' as Address, // Your deployed testnet address
+    [56]: '0xD64d78dCFc550F131813a949c27b2b439d908F54' as Address, // BSC Mainnet only
   }
 }
 
@@ -234,30 +234,30 @@ export function useWalletManager() {
   const [walletData, setWalletData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Support both BSC mainnet and testnet
+  // Support BSC mainnet only
   const { data: bnbBalance, refetch: refetchBnb } = useBalance({
     address,
     chainId: chainId
   })
 
-  // Get USDT balance - Support both networks
+  // Get USDT balance - BSC Mainnet only
   const { data: usdtBalance, refetch: refetchUsdt } = useReadContract({
-    address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+    address: CONTRACTS.USDT[56], // Force mainnet
     abi: USDT_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address && (chainId === bsc.id || chainId === bscTestnet.id)
+      enabled: !!address && chainId === bsc.id // Only enable for mainnet
     }
   })
 
-  // Get USDT decimals to ensure correct formatting
+  // Get USDT decimals for mainnet
   const { data: usdtDecimals } = useReadContract({
-    address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+    address: CONTRACTS.USDT[56], // Force mainnet
     abi: USDT_ABI,
     functionName: 'decimals',
     query: {
-      enabled: !!address && (chainId === bsc.id || chainId === bscTestnet.id)
+      enabled: !!address && chainId === bsc.id // Only enable for mainnet
     }
   })
 
@@ -282,48 +282,47 @@ export function useWalletManager() {
   const { writeContract, data: hash, isPending } = useWriteContract()
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash })
 
-  // Add the missing computed values and functions
-  const isOnBSC = chainId === bsc.id || chainId === bscTestnet.id
-
+  // Force BSC mainnet only
+  const isOnBSC = chainId === bsc.id
+  
   const switchToBSC = async (): Promise<boolean> => {
     try {
-      if (chainId !== bsc.id && chainId !== bscTestnet.id) {
-        const targetChainId = process.env.NODE_ENV === 'development' ? bscTestnet.id : bsc.id
-        await switchChain({ chainId: targetChainId })
+      if (chainId !== bsc.id) {
+        console.log('🔄 Switching to BSC Mainnet...')
+        await switchChain({ chainId: bsc.id })
         return true
       }
       return true
     } catch (error) {
-      console.error('Failed to switch to BSC:', error)
+      console.error('Failed to switch to BSC Mainnet:', error)
       return false
     }
   }
 
+  // Update fetchWalletData to only work with mainnet
   const fetchWalletData = async () => {
     if (!address || !isConnected) return null
     
     setIsLoading(true)
     
     try {
-      if (chainId !== bsc.id && chainId !== bscTestnet.id) {
-        console.log('Switching to supported BSC network...')
-        const targetChainId = process.env.NODE_ENV === 'development' ? bscTestnet.id : bsc.id
-        await switchChain({ chainId: targetChainId })
+      if (chainId !== bsc.id) {
+        console.log('🔄 Must switch to BSC Mainnet...')
+        await switchChain({ chainId: bsc.id })
         setIsLoading(false)
         return null
       }
 
-      console.log(`Fetching wallet data for ${chainId === bsc.id ? 'BSC Mainnet' : 'BSC Testnet'}...`)
+      console.log('📊 Fetching wallet data for BSC Mainnet only...')
       
       // Format USDT balance using actual decimals from contract
       let formattedUsdtBalance = '0'
       if (usdtBalance) {
         try {
-          // Use actual decimals from the contract
-          const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6 // Default to 6 if not available
+          const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6
           formattedUsdtBalance = formatUnits(usdtBalance, actualDecimals)
           
-          console.log('✅ USDT balance formatted:', {
+          console.log('✅ USDT balance (BSC Mainnet):', {
             raw: usdtBalance.toString(),
             decimals: actualDecimals,
             formatted: formattedUsdtBalance
@@ -336,13 +335,13 @@ export function useWalletManager() {
       
       const walletInfo = {
         address,
-        chainId,
-        isOnBSC: chainId === bsc.id || chainId === bscTestnet.id,
+        chainId: bsc.id, // Force mainnet
+        isOnBSC: true,
         balances: {
           bnb: {
             raw: bnbBalance?.value || BigInt(0),
             formatted: bnbBalance ? formatUnits(bnbBalance.value, 18) : '0',
-            symbol: chainId === bsc.id ? 'BNB' : 'tBNB'
+            symbol: 'BNB'
           },
           usdt: {
             raw: usdtBalance || BigInt(0),
@@ -354,7 +353,7 @@ export function useWalletManager() {
         lastUpdated: new Date().toISOString()
       }
 
-      console.log('💰 Final wallet info:', {
+      console.log('💰 Wallet info (BSC Mainnet only):', {
         address: walletInfo.address,
         usdtFormatted: walletInfo.balances.usdt.formatted,
         bnbFormatted: walletInfo.balances.bnb.formatted,
@@ -635,41 +634,189 @@ export function useWalletManager() {
   }
 
   // USDT functions
-  const transferUSDT = async (to: Address, amount: string) => {
+  const transferUSDT = async (to: Address, amount: string, useGasStation = true) => {
     if (!address) throw new Error('Wallet not connected')
-    if (!isOnBSC) throw new Error('Please switch to a supported BSC network')
+    if (chainId !== bsc.id) throw new Error('Please switch to BSC Mainnet')
     
-    const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6
-    const amountWei = parseUnits(amount, actualDecimals)
-    
-    writeContract({
-      address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
-      abi: USDT_ABI,
-      functionName: 'transfer',
-      args: [to, amountWei],
+    console.log('💸 Starting USDT transfer on BSC Mainnet:', {
+      from: address,
+      to,
+      amount,
+      chainId: bsc.id, // Force mainnet
+      useGasStation
     })
+    
+    try {
+      if (useGasStation && GAS_STATION_ENABLED) {
+        console.log('🚀 Using Gas Station for USDT transfer on BSC Mainnet...')
+        
+        const response = await fetch('/api/gas-station/admin-transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adminAddress: address,
+            userAddress: to,
+            usdtAmount: amount,
+            chainId: 56 // Force mainnet chainId
+          })
+        })
+        
+        const result = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Gas Station transfer failed')
+        }
+        
+        console.log('✅ Gas Station transfer successful (BSC Mainnet):', result.txHash)
+        return result.txHash
+      } else {
+        // Fallback to direct transfer on mainnet
+        console.log('⚡ Using direct USDT transfer on BSC Mainnet...')
+        
+        const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6
+        const amountWei = parseUnits(amount, actualDecimals)
+        const usdtContract = CONTRACTS.USDT[56] // Force mainnet
+        
+        // Pre-flight checks
+        const adminBalance = await readContract(config as any, {
+          address: usdtContract,
+          abi: USDT_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        })
+        
+        if (adminBalance < amountWei) {
+          throw new Error(`Insufficient USDT balance. Required: ${amount}, Available: ${formatUnits(adminBalance, actualDecimals)}`)
+        }
+        
+        // Execute direct transfer
+        writeContract({
+          address: usdtContract,
+          abi: USDT_ABI,
+          functionName: 'transfer',
+          args: [to, amountWei],
+        })
+        
+        console.log('✅ Direct USDT transfer transaction submitted (BSC Mainnet)')
+      }
+    } catch (error) {
+      console.error('❌ USDT transfer error:', error)
+      throw new Error(`USDT transfer failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
-  const approveUSDT = async (spender: Address, amount: string) => {
+  // Enhanced sell order with Gas Station
+  const createSellOrder = async (usdtAmount: string, inrAmount: number, orderType: string, useGasStation = true) => {
     if (!address) throw new Error('Wallet not connected')
     if (!isOnBSC) throw new Error('Please switch to a supported BSC network')
     
-    const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6
-    const amountWei = parseUnits(amount, actualDecimals)
+    console.log('🔗 Creating sell order:', { usdtAmount, inrAmount, orderType, useGasStation })
     
-    writeContract({
-      address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
-      abi: USDT_ABI,
-      functionName: 'approve',
-      args: [spender, amountWei],
-    })
+    try {
+      if (useGasStation && GAS_STATION_ENABLED) {
+        // Use Gas Station API
+        const response = await fetch('/api/gas-station/create-sell-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userAddress: address,
+            usdtAmount,
+            inrAmount,
+            orderType,
+            chainId
+          })
+        })
+        
+        const result = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Gas Station sell order creation failed')
+        }
+        
+        console.log('✅ Sell order created via Gas Station:', result.txHash)
+        return result.txHash
+      } else {
+        // Fallback to direct contract interaction
+        const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6
+        const usdtAmountWei = parseUnits(usdtAmount, actualDecimals)
+        const contractAddress = CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING]
+        
+        if (!contractAddress || contractAddress === '0x0000000000000000000000000000000000000000') {
+          throw new Error(`P2P Trading contract not deployed on chain ${chainId}`)
+        }
+        
+        writeContract({
+          address: contractAddress,
+          abi: P2P_TRADING_ABI,
+          functionName: 'directSellTransfer',
+          args: [usdtAmountWei, BigInt(inrAmount * 100), orderType, address],
+        })
+        
+        console.log('✅ Direct sell order created')
+      }
+    } catch (error) {
+      console.error('❌ Sell order creation error:', error)
+      throw error
+    }
+  }
+
+  // Enhanced buy order with Gas Station
+  const createBuyOrder = async (usdtAmount: string, inrAmount: number, orderType: string, useGasStation = true) => {
+    if (!address) throw new Error('Wallet not connected')
+    if (!isOnBSC) throw new Error('Please switch to a supported BSC network')
+    
+    console.log('🔗 Creating buy order:', { usdtAmount, inrAmount, orderType, useGasStation })
+    
+    try {
+      if (useGasStation && GAS_STATION_ENABLED) {
+        // Use Gas Station API
+        const response = await fetch('/api/gas-station/create-buy-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userAddress: address,
+            usdtAmount,
+            inrAmount,
+            orderType,
+            chainId
+          })
+        })
+        
+        const result = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Gas Station buy order creation failed')
+        }
+        
+        console.log('✅ Buy order created via Gas Station:', result.txHash)
+        return result.txHash
+      } else {
+        // Fallback to direct contract interaction (existing logic)
+        const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6
+        const usdtAmountWei = parseUnits(usdtAmount, actualDecimals)
+        const contractAddress = CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING]
+        
+        writeContract({
+          address: contractAddress,
+          abi: P2P_TRADING_ABI,
+          functionName: 'createBuyOrder',
+          args: [usdtAmountWei, BigInt(inrAmount * 100), orderType],
+        })
+        
+        console.log('✅ Direct buy order created')
+      }
+    } catch (error) {
+      console.error('❌ Buy order creation error:', error)
+      throw error
+    }
   }
 
   // Auto-fetch wallet data when connected and on supported BSC networks
   useEffect(() => {
-    if (isConnected && address && (chainId === bsc.id || chainId === bscTestnet.id)) {
+    if (isConnected && address && chainId === bsc.id) {
       fetchWalletData()
-    } else if (isConnected && address && chainId !== bsc.id && chainId !== bscTestnet.id) {
+    } else if (isConnected && address && chainId !== bsc.id) {
+      console.log('⚠️ Not on BSC Mainnet, showing warning state')
       setWalletData({
         address,
         chainId,
@@ -678,13 +825,14 @@ export function useWalletManager() {
           usdt: { raw: '0', formatted: '0', symbol: 'USDT' }
         },
         canTrade: false,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
+        needsMainnet: true
       })
     }
   }, [isConnected, address, chainId, bnbBalance, usdtBalance])
 
   const refetchBalances = async () => {
-    if (chainId === bsc.id || chainId === bscTestnet.id) {
+    if (chainId === bsc.id) {
       await Promise.all([refetchBnb(), refetchUsdt()])
       await fetchWalletData()
     }
@@ -840,6 +988,98 @@ export function useWalletManager() {
     }
   }
 
+  // USDT approval function
+  const approveUSDT = async (spender: Address, amount: string) => {
+    if (!address) throw new Error('Wallet not connected')
+    if (!isOnBSC) throw new Error('Please switch to a supported BSC network')
+    
+    console.log('🔓 Approving USDT:', {
+      spender,
+      amount,
+      from: address,
+      chainId
+    })
+    
+    try {
+      const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6
+      const amountWei = parseUnits(amount, actualDecimals)
+      
+      writeContract({
+        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+        abi: USDT_ABI,
+        functionName: 'approve',
+        args: [spender, amountWei],
+      })
+      
+      console.log('✅ USDT approval transaction submitted')
+    } catch (error) {
+      console.error('❌ USDT approval error:', error)
+      throw new Error(`USDT approval failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  // Add this function to handle Gas Station approvals:
+
+  const approveGasStationForSell = async (usdtAmount: string): Promise<boolean> => {
+    if (!address || chainId !== 56) return false;
+
+    try {
+      const GAS_STATION_ADDRESS = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
+      const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 18;
+      const usdtAmountWei = parseUnits(usdtAmount, actualDecimals);
+      
+      // Check current allowance for Gas Station
+      const currentAllowance = await readContract(config as any, {
+        address: CONTRACTS.USDT[56],
+        abi: USDT_ABI,
+        functionName: 'allowance',
+        args: [address, GAS_STATION_ADDRESS],
+      });
+
+      console.log('🔍 Gas Station allowance check:', {
+        required: formatUnits(usdtAmountWei, actualDecimals),
+        current: formatUnits(currentAllowance, actualDecimals),
+        sufficient: currentAllowance >= usdtAmountWei
+      });
+
+      if (currentAllowance >= usdtAmountWei) {
+        return true; // Already approved
+      }
+
+      // Need approval - approve 10x for future transactions
+      const approveAmount = usdtAmountWei * BigInt(10);
+      
+      console.log('🔓 Approving Gas Station for USDT:', {
+        spender: GAS_STATION_ADDRESS,
+        amount: formatUnits(approveAmount, actualDecimals)
+      });
+
+      await approveUSDT(GAS_STATION_ADDRESS as `0x${string}`, formatUnits(approveAmount, actualDecimals));
+      
+      // Wait for approval transaction
+      await new Promise(resolve => setTimeout(resolve, 8000));
+      
+      // Verify approval
+      const newAllowance = await readContract(config as any, {
+        address: CONTRACTS.USDT[56],
+        abi: USDT_ABI,
+        functionName: 'allowance',
+        args: [address, GAS_STATION_ADDRESS],
+      });
+
+      const isApproved = newAllowance >= usdtAmountWei;
+      console.log('✅ Gas Station approval result:', {
+        approved: isApproved,
+        newAllowance: formatUnits(newAllowance, actualDecimals)
+      });
+
+      return isApproved;
+    } catch (error) {
+      console.error('❌ Gas Station approval failed:', error);
+      return false;
+    }
+  };
+
   return {
     address,
     isConnected,
@@ -866,6 +1106,11 @@ export function useWalletManager() {
     // USDT functions
     transferUSDT,
     approveUSDT,
+    approveGasStationForSell, // Add this new function
+    // Enhanced functions with Gas Station
+    createSellOrder,
+    createBuyOrder,
+    gasStationEnabled: GAS_STATION_ENABLED,
     // Transaction status
     hash,
     isPending,

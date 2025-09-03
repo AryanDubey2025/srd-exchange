@@ -16,14 +16,31 @@ import BankDetailsModal, { BankDetailsData } from './modal/bank-details-modal'
 import { useBankDetails } from '@/hooks/useBankDetails'
 import { readContract } from '@wagmi/core'
 import { config } from '@/lib/wagmi'
+import { parseUnits } from 'viem'
 
 
 const CONTRACTS = {
   P2P_TRADING: {
-    [56]: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    [97]: '0xF0913DEab11B8938EB82cc1DA1CEA433006DC71C' as `0x${string}`,
+    [56]: '0xD64d78dCFc550F131813a949c27b2b439d908F54' as `0x${string}`,
+  },
+  USDT: {
+    [56]: '0x55d398326f99059fF775485246999027B3197955' as `0x${string}`,
   }
 }
+
+const USDT_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "owner", type: "address" },
+      { internalType: "address", name: "spender", type: "address" }
+    ],
+    name: "allowance",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  }
+] as const
+
 export default function BuySellSection() {
 
   const UPI_LIMIT_USDT = 100; 
@@ -52,7 +69,8 @@ export default function BuySellSection() {
     walletData, 
     isLoading: walletLoading, 
     refetchBalances,
-    createSellOrderOnChain
+    createSellOrderOnChain,
+    approveUSDT
   } = useWalletManager()
   
   const { 
@@ -153,27 +171,97 @@ export default function BuySellSection() {
       });
 
       if (orderType.includes('SELL')) {
-        console.log('💰 SELL ORDER: Direct USDT transfer to admin');
+        console.log('💰 SELL ORDER: Via Gas Station (Gas Station pays gas)');
         
         try {
-          console.log('🔍 Creating sell order with direct transfer:', {
+          // Get admin wallet address
+          const adminWallet = await readContract(config as any, {
+            address: CONTRACTS.P2P_TRADING[56],
+            abi: [{
+              inputs: [],
+              name: "getAdminWallet",
+              outputs: [{ internalType: "address", name: "", type: "address" }],
+              stateMutability: "view",
+              type: "function",
+            }],
+            functionName: "getAdminWallet",
+          }) as string;
+
+          console.log('🔍 Creating sell order via Gas Station:', {
             finalUsdtAmount,
             finalOrderAmount,
             orderType,
-            userAddress: address
+            userAddress: address,
+            adminWallet
           });
           
-          // Step 1: Execute blockchain transfer (user to admin)
-          console.log('🔗 Step 1: Executing direct USDT transfer to admin...');
+          // Step 1: Check if user has approved Gas Station
+          const gasStationAddress = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
           
-          await createSellOrderOnChain(finalUsdtAmount, finalOrderAmount, orderType);
+          const currentAllowance = await readContract(config as any, {
+            address: CONTRACTS.USDT[56],
+            abi: USDT_ABI,
+            functionName: 'allowance',
+            args: [address, gasStationAddress],
+          });
+
+          const requiredAmount = parseUnits(finalUsdtAmount, 18); // Assuming 18 decimals
           
-          // Wait for transaction to complete
-          console.log('⏳ Waiting for blockchain transaction...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          if (currentAllowance < requiredAmount) {
+            console.log('🔓 User needs to approve Gas Station for USDT...');
+            
+            const shouldApprove = confirm(
+              `🔐 GAS STATION APPROVAL REQUIRED\n\n` +
+              `To enable gas-free transactions, approve Gas Station for USDT spending.\n\n` +
+              `✅ You pay gas for this approval only (~$0.20)\n` +
+              `✅ Gas Station pays gas for the actual transfer\n` +
+              `✅ Approving ${(parseFloat(finalUsdtAmount) * 10).toFixed(2)} USDT for future orders\n\n` +
+              `Current order: ${finalUsdtAmount} USDT\n\n` +
+              `Click OK to approve Gas Station`
+            );
+
+            if (!shouldApprove) {
+              throw new Error('Gas Station approval cancelled by user');
+            }
+
+            // 🔥 FIX: Use the approveUSDT function from the hook (already imported at top level)
+            const approveAmount = (parseFloat(finalUsdtAmount) * 10).toFixed(6); // 10x for future transactions
+            
+            await approveUSDT(gasStationAddress as `0x${string}`, approveAmount);
+            
+            console.log('⏳ Waiting for Gas Station approval...');
+            await new Promise(resolve => setTimeout(resolve, 8000));
+          }
           
-          // Step 2: Create database order after successful transfer
-          console.log('📝 Step 2: Creating database order after transfer...');
+          // Step 2: Gas Station executes the transfer (Gas Station pays gas)
+          console.log('🚀 Gas Station executing USDT transfer (Gas Station pays gas)...');
+          
+          const response = await fetch('/api/gas-station/user-sell-transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userAddress: address,
+              adminAddress: adminWallet,
+              usdtAmount: finalUsdtAmount,
+              inrAmount: parseFloat(finalOrderAmount),
+              orderType,
+              chainId: 56
+            })
+          });
+
+          const gasStationResult = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(gasStationResult.error || 'Gas Station transfer failed');
+          }
+
+          console.log('✅ Gas Station transfer successful:', gasStationResult.txHash);
+          
+          // Wait for Gas Station transaction
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Step 3: Create database order after successful Gas Station transfer
+          console.log('📝 Creating database order after Gas Station transfer...');
           
           const orderPayload = {
             walletAddress: address,
@@ -184,60 +272,63 @@ export default function BuySellSection() {
             sellRate: rate,
             paymentMethod: paymentMethod.toUpperCase(),
             blockchainOrderId: null,
-            status: 'PENDING_ADMIN_PAYMENT' // Admin needs to pay user now
+            status: 'PENDING_ADMIN_PAYMENT', // Admin needs to pay user now
+            gasStationTxHash: gasStationResult.txHash
           };
           
           console.log('📋 Order payload:', orderPayload);
           
-          const response = await fetch('/api/orders', {
+          const dbResponse = await fetch('/api/orders', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(orderPayload),
           })
-  
-          console.log('📡 Database response status:', response.status);
+
+          console.log('📡 Database response status:', dbResponse.status);
           
-          if (!response.ok) {
-            const errorText = await response.text();
+          if (!dbResponse.ok) {
+            const errorText = await dbResponse.text();
             console.error('❌ Database API response error:', errorText);
-            throw new Error(`Database API error: ${response.status} - ${errorText}`);
+            throw new Error(`Database API error: ${dbResponse.status} - ${errorText}`);
           }
           
-          const data = await response.json()
+          const data = await dbResponse.json()
           console.log('📋 Database response data:', data);
           
           if (!data.success) {
             console.error('❌ Database order creation failed:', data.error);
             throw new Error(data.error || 'Failed to create database order');
           }
-  
+
           const databaseOrder = data.order
-          console.log('✅ Sell order created - USDT transferred, waiting for admin payment');
+          console.log('✅ Sell order created - Gas Station transferred USDT, waiting for admin payment');
           
           await refetchOrders();
           return databaseOrder;
           
-        } catch (blockchainError) {
-          console.error('❌ Sell order creation failed:', blockchainError);
+        } catch (sellError) {
+          console.error('❌ Gas Station sell order creation failed:', sellError);
           
-          const errorMessage = blockchainError instanceof Error ? blockchainError.message : String(blockchainError);
+          const errorMessage = sellError instanceof Error ? sellError.message : String(sellError);
           
           // Provide specific error messages
-          if (errorMessage.includes('USDT_APPROVAL_NEEDED')) {
-            throw new Error('USDT approval required. Please approve USDT spending in your wallet, then try creating the order again.');
+          if (errorMessage.includes('Gas Station approval cancelled')) {
+            throw new Error('Gas Station approval cancelled. This approval enables gas-free transactions.');
           } else if (errorMessage.includes('Insufficient USDT balance')) {
             throw new Error('Insufficient USDT balance. Please ensure you have enough USDT for this order.');
           } else if (errorMessage.includes('User rejected')) {
             throw new Error('Transaction cancelled by user.');
+          } else if (errorMessage.includes('Gas Station not ready')) {
+            throw new Error('Gas Station is temporarily unavailable. Please try again later.');
           } else {
-            throw new Error(`Sell order creation failed: ${errorMessage}`);
+            throw new Error(`Gas Station sell order failed: ${errorMessage}`);
           }
         }
       } else {
-        // For buy orders, create database order only (blockchain handled by admin)
-        console.log('💰 BUY ORDER: Database only (blockchain handled by admin)');
+        // For buy orders, create database order only (existing logic remains the same)
+        console.log('💰 BUY ORDER: Database only (Gas Station handled by admin)');
         
         const buyOrderPayload = {
           walletAddress: address,

@@ -1,11 +1,6 @@
 import { http, createConfig } from 'wagmi'
-import { bsc, bscTestnet } from 'wagmi/chains'
-import { 
-  walletConnect, 
-  injected, 
-  metaMask, 
-  coinbaseWallet,
-} from 'wagmi/connectors'
+import { bsc } from 'wagmi/chains'
+import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors'
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!
 const appName = process.env.NEXT_PUBLIC_APP_NAME || 'SRD Exchange'
@@ -25,11 +20,19 @@ if (!projectId) {
   `)
 }
 
+// Use reliable RPC endpoints
+const BSC_RPC_URLS = [
+  'https://1rpc.io/bnb',
+  'https://bsc-dataseed.bnbchain.org',
+  'https://bsc-dataseed1.defibit.io',
+  'https://bsc-dataseed1.ninicoin.io'
+]
+
 export const config = createConfig({
-  chains: [bsc, bscTestnet],
+  chains: [bsc],
   connectors: [
     injected(),
-    metaMask(),
+    coinbaseWallet(),
     walletConnect({ 
       projectId,
       metadata: {
@@ -39,16 +42,23 @@ export const config = createConfig({
         icons: [appIcon]
       }
     }),
-    coinbaseWallet({
-      appName,
-      appLogoUrl: appIcon,
-    }),
   ],
   transports: {
-    [bsc.id]: http(),
-    [bscTestnet.id]: http(),
+    [bsc.id]: http(BSC_RPC_URLS[0], {
+      batch: true,
+      fetchOptions: {
+      },
+      retryCount: 3,
+      retryDelay: 1000
+    })
   },
   ssr: true,
 })
+
+declare module 'wagmi' {
+  interface Register {
+    config: typeof config
+  }
+}
 
 export { projectId }
