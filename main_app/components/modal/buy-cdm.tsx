@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Copy,
@@ -15,6 +15,9 @@ import {
   Building,
   CreditCard as BankIcon,
   User,
+  File,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalState } from "@/hooks/useModalState";
@@ -52,6 +55,13 @@ export default function BuyCDMModal({
   const [isUpiPaid, setIsUpiPaid] = useState(false);
   const [isCoinReceived, setIsCoinReceived] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptUploaded, setReceiptUploaded] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { saveModalState, getModalState, clearModalState } = useModalState();
   const { paymentDetails, isLoading: isLoadingPaymentDetails } =
     useOrderPaymentDetails(
@@ -62,11 +72,9 @@ export default function BuyCDMModal({
   const { calculateUSDTFromINR } = useUSDTCalculation();
   const { getBuyRate } = useRates();
 
-  // Check if admin has provided bank details
   const hasReceivedAdminDetails = !!paymentDetails?.adminBankDetails;
   const displayAmount = paymentDetails?.customAmount?.toString() || amount;
 
-  // Default bank details shown before admin sends custom ones
   const defaultBankDetails = {
     accountNumber: "XXXX-XXXX-XXXX",
     ifscCode: "WAIT001",
@@ -77,7 +85,83 @@ export default function BuyCDMModal({
   const displayBankDetails =
     paymentDetails?.adminBankDetails || defaultBankDetails;
 
-  // Load saved state when modal opens
+  useEffect(() => {
+    if (orderData?.paymentProof) {
+      setReceiptUploaded(true);
+      setReceiptUrl(orderData.paymentProof);
+    }
+  }, [orderData?.paymentProof]);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf") {
+        alert("Please select a PDF file only");
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        alert("File size must be less than 10MB");
+        return;
+      }
+
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUploadReceipt = async () => {
+    if (!selectedFile || !orderData) {
+      alert("Please select a PDF file first");
+      return;
+    }
+
+    setUploadingReceipt(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("orderId", orderData.fullId || orderData.id);
+      formData.append("orderType", "BUY_CDM");
+
+      const response = await fetch("/api/upload-receipt", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setReceiptUploaded(true);
+        setReceiptUrl(result.url);
+        setSelectedFile(null);
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+
+        setIsUploadComplete(true);
+
+        window.dispatchEvent(new CustomEvent('receiptUploaded', {
+          detail: {
+            orderId: orderData.fullId || orderData.id,
+            fileName: selectedFile.name,
+            fileUrl: result.url,
+            orderType: 'BUY_CDM'
+          }
+        }));
+
+        console.log("✅ Receipt uploaded successfully:", result.url);
+      } else {
+        alert(`Upload failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload receipt. Please try again.");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen && orderData) {
       console.log(
@@ -88,7 +172,6 @@ export default function BuyCDMModal({
       if (savedState) {
         console.log("📋 Restoring CDM modal state:", savedState);
 
-        // Restore the step states based on saved data
         if (savedState.currentStep >= 5) {
           setIsOrderComplete(true);
           setIsUploadComplete(true);
@@ -145,7 +228,6 @@ export default function BuyCDMModal({
           setCurrentStep(0);
         }
       } else {
-        // No saved state, start fresh
         console.log("🆕 No saved CDM state found, starting fresh");
         setIsUpiPaymentStep(false);
         setIsUpiPaid(false);
@@ -159,7 +241,6 @@ export default function BuyCDMModal({
     }
   }, [isOpen, orderData]);
 
-  // Save state whenever it changes
   useEffect(() => {
     if (orderData && isOpen) {
       const currentStepValue = isOrderComplete
@@ -228,10 +309,13 @@ export default function BuyCDMModal({
       setConfirmAccountNumber("");
       setIfscCode("");
       setBranchName("");
+      setSelectedFile(null);
+      setUploadingReceipt(false);
+      setReceiptUploaded(false);
+      setReceiptUrl(null);
     }
   }, [isOpen, orderData]);
 
-  // Auto-advance to UPI step when admin UPI is received
   useEffect(() => {
     if (paymentDetails?.adminUpiId && !isUpiPaymentStep && !isUpiPaid) {
       console.log("✅ Admin UPI ID received, showing UPI payment step");
@@ -239,7 +323,6 @@ export default function BuyCDMModal({
     }
   }, [paymentDetails?.adminUpiId, isUpiPaymentStep, isUpiPaid]);
 
-  // Debug logging
   useEffect(() => {
     if (isOpen && orderData) {
       console.log("🖥️ Buy CDM Modal State Debug:", {
@@ -254,6 +337,8 @@ export default function BuyCDMModal({
         isOrderComplete,
         isCoinReceived,
         currentStep,
+        receiptUploaded,
+        receiptUrl,
       });
     }
   }, [
@@ -269,6 +354,8 @@ export default function BuyCDMModal({
     isOrderComplete,
     isCoinReceived,
     currentStep,
+    receiptUploaded,
+    receiptUrl,
   ]);
 
   const handleCopy = async (text: string, field: string) => {
@@ -310,7 +397,6 @@ export default function BuyCDMModal({
       setCurrentStep(5);
     } catch (error) {
       console.error("❌ Error confirming order on blockchain:", error);
-      // Still update UI even if blockchain call fails
       setIsCoinReceived(true);
       setIsOrderComplete(true);
       setCurrentStep(5);
@@ -382,7 +468,6 @@ export default function BuyCDMModal({
             }}
             transition={{ type: "spring", duration: 0.3 }}
           >
-            {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-[#2F2F2F]">
               <div className="flex items-center space-x-3">
                 <div
@@ -401,13 +486,11 @@ export default function BuyCDMModal({
                 </span>
               </div>
 
-              {/* Desktop - Centered "How to buy" */}
               <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 space-x-1 justify-center items-center text-white text-sm">
                 <CircleQuestionMark className="w-5 h-5" />
                 <span>How to buy?</span>
               </div>
 
-              {/* Close button */}
               <button
                 onClick={onClose}
                 className="text-white hover:text-white transition-colors"
@@ -416,10 +499,8 @@ export default function BuyCDMModal({
               </button>
             </div>
 
-            {/* Scrollable Main Content */}
             <div className="overflow-y-auto max-h-[calc(90vh-80px)] md:max-h-[calc(90vh-80px)]">
               <div className="p-4 text-center">
-                {/* Loading State */}
                 {isLoadingPaymentDetails && !paymentDetails?.adminUpiId && (
                   <motion.div
                     className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg"
@@ -435,7 +516,6 @@ export default function BuyCDMModal({
                   </motion.div>
                 )}
 
-                {/* Order Status Messages - Show waiting for UPI first */}
                 {!paymentDetails?.adminUpiId && !isLoadingPaymentDetails && (
                   <motion.div
                     className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg"
@@ -514,9 +594,7 @@ export default function BuyCDMModal({
                   </motion.div>
                 )}
 
-                {/* Amount Display - Show both rupee and USDT values when admin accepts */}
                 <div className="mb-6">
-                  {/* Primary Amount */}
                   <div className="text-4xl md:text-4xl font-bold text-white mb-2">
                     {!isUpiPaid
                       ? "₹500"
@@ -525,7 +603,6 @@ export default function BuyCDMModal({
                       : `₹${displayAmount}`}
                   </div>
 
-                  {/* Secondary Amount - Show USDT equivalent when admin provides main transfer amount */}
                   {hasReceivedAdminDetails && isUpiPaid && (
                     <div className="text-2xl md:text-2xl font-medium text-gray-300 mb-2">
                       ≈{" "}
@@ -539,7 +616,6 @@ export default function BuyCDMModal({
                     </div>
                   )}
 
-                  {/* Status Labels */}
                   {!isUpiPaid && (
                     <div className="text-sm text-yellow-400 font-normal mb-2">
                       CDM Order Verification Fee
@@ -559,7 +635,6 @@ export default function BuyCDMModal({
                       </div>
                     )}
 
-                  {/* Conversion Rate Display - Only show for main transfer */}
                   {hasReceivedAdminDetails && isUpiPaid && (
                     <div className="text-xs text-gray-400 mb-2">
                       You will receive{" "}
@@ -593,7 +668,6 @@ export default function BuyCDMModal({
                   </div>
                 </div>
 
-                {/* Payment Method Badge */}
                 <div className="flex items-center justify-center space-x-4 md:space-x-10 mb-6 flex-wrap gap-2">
                   <div className="bg-[#1D1C1C] text-black px-2.5 py-1.5 rounded text-sm font-medium flex items-center space-x-2">
                     <img src="/bank.svg" alt="" className="w-4 h-4" />
@@ -611,7 +685,6 @@ export default function BuyCDMModal({
                   </span>
                 </div>
 
-                {/* Payment Instructions */}
                 {!paymentDetails?.adminUpiId && !isLoadingPaymentDetails && (
                   <div className="mb-8">
                     <div className="text-white mb-1">
@@ -662,7 +735,6 @@ export default function BuyCDMModal({
                         <TriangleAlert className="w-3 h-3 mr-1" />
                         Transfer only to the admin's bank account provided below
                       </div>
-                      {/* Show rate information for main transfer */}
                       {paymentDetails?.customAmount && (
                         <div className="text-xs text-gray-400 text-center">
                           At current rate: 1 USDT = ₹{getBuyRate("CDM")} • You
@@ -677,7 +749,6 @@ export default function BuyCDMModal({
                     </div>
                   )}
 
-                {/* UPI ID Section - Show for verification payment */}
                 {paymentDetails?.adminUpiId && !isUpiPaid && (
                   <div className="flex items-center justify-center mb-6">
                     <div className="flex items-center justify-between rounded-lg px-4 py-3 min-w-[280px] md:min-w-[325px] max-w-md w-full mx-4 bg-[#2a2a2a]">
@@ -700,7 +771,6 @@ export default function BuyCDMModal({
                   </div>
                 )}
 
-                {/* Waiting for UPI ID Section - Like buy-upi.tsx */}
                 {!paymentDetails?.adminUpiId && (
                   <div className="flex items-center justify-center mb-6">
                     <div className="flex items-center justify-between rounded-lg px-4 py-3 min-w-[280px] md:min-w-[325px] max-w-md w-full mx-4 bg-[#2a2a2a]/50 border border-dashed border-gray-600">
@@ -711,7 +781,6 @@ export default function BuyCDMModal({
                   </div>
                 )}
 
-                {/* Waiting for bank details after UPI payment */}
                 {isUpiPaid && !hasReceivedAdminDetails && (
                   <div className="flex items-center justify-center mb-6">
                     <div className="flex items-center justify-between rounded-lg px-4 py-3 min-w-[280px] md:min-w-[325px] max-w-md w-full mx-4 bg-[#2a2a2a]/50 border border-dashed border-gray-600">
@@ -722,7 +791,6 @@ export default function BuyCDMModal({
                   </div>
                 )}
 
-                {/* Bank Details Section - Only show after UPI payment is confirmed */}
                 {isUpiPaid && hasReceivedAdminDetails && (
                   <motion.div
                     className="mb-6"
@@ -762,7 +830,6 @@ export default function BuyCDMModal({
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Account Number */}
                         <div className="md:col-span-2">
                           <div className="flex items-center space-x-2 mb-2">
                             <BankIcon className="w-4 h-4 text-gray-400" />
@@ -792,7 +859,6 @@ export default function BuyCDMModal({
                           </div>
                         </div>
 
-                        {/* IFSC Code */}
                         <div>
                           <div className="flex items-center space-x-2 mb-2">
                             <FileText className="w-4 h-4 text-gray-400" />
@@ -819,7 +885,6 @@ export default function BuyCDMModal({
                           </div>
                         </div>
 
-                        {/* Branch Name */}
                         <div>
                           <div className="flex items-center space-x-2 mb-2">
                             <Building className="w-4 h-4 text-gray-400" />
@@ -834,7 +899,6 @@ export default function BuyCDMModal({
                           </div>
                         </div>
 
-                        {/* Account Holder Name */}
                         <div className="md:col-span-2">
                           <div className="flex items-center space-x-2 mb-2">
                             <User className="w-4 h-4 text-gray-400" />
@@ -850,34 +914,103 @@ export default function BuyCDMModal({
                         </div>
                       </div>
                     </div>
+
+                    <motion.div
+                      className="mt-6 p-4 bg-[#1a1a1a] rounded-xl max-w-2xl mx-auto"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: 0.2 }}
+                    >
+                      <div className="flex items-center justify-center space-x-2 mb-4">
+                        <Upload className="w-5 h-5 text-purple-400" />
+                        <h4 className="text-lg font-semibold text-white">
+                          Upload Payment Receipt
+                        </h4>
+                      </div>
+
+                      {!receiptUploaded ? (
+                        <div className="space-y-4">
+                          <div className="text-sm text-gray-400 text-center">
+                            Upload your CDM payment receipt as PDF (Max 10MB)
+                          </div>
+
+                          <div className="flex flex-col space-y-2">
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              onChange={handleFileSelect}
+                              accept=".pdf"
+                              className="hidden"
+                            />
+
+                            <button
+                              onClick={() => fileInputRef.current?.click()}
+                              className="w-full p-3 border-2 border-dashed border-gray-600 rounded-lg hover:border-purple-500 transition-colors text-gray-400 hover:text-white"
+                            >
+                              {selectedFile ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <File className="w-5 h-5 text-purple-400" />
+                                  <span className="text-white">
+                                    {selectedFile.name}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Upload className="w-5 h-5" />
+                                  <span>Click to select PDF receipt</span>
+                                </div>
+                              )}
+                            </button>
+                          </div>
+
+                          {selectedFile && (
+                            <motion.button
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              onClick={handleUploadReceipt}
+                              disabled={uploadingReceipt}
+                              className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg font-medium transition-all"
+                            >
+                              {uploadingReceipt ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <span>Uploading Receipt...</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Upload className="w-4 h-4" />
+                                  <span>Upload Receipt</span>
+                                </div>
+                              )}
+                            </motion.button>
+                          )}
+                        </div>
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="text-center space-y-3"
+                        >
+                          <div className="flex items-center justify-center space-x-2 text-green-400">
+                            <CheckCircle className="w-6 h-6" />
+                            <span className="font-medium">
+                              Receipt Uploaded Successfully!
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-400">
+                            Your payment receipt has been submitted to admin
+                            for verification
+                          </div>
+                          <div className="text-xs text-green-300 bg-green-500/10 rounded p-2">
+                            Admin will review your receipt and confirm the
+                            payment
+                          </div>
+                        </motion.div>
+                      )}
+                    </motion.div>
                   </motion.div>
                 )}
 
-                {/* User Account Details Section - Show when waiting for confirmation */}
-                {(isWaitingConfirmation || isPaid) &&
-                  hasReceivedAdminDetails &&
-                  isUpiPaid && (
-                    <motion.div
-                      className="mb-8"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      {/* Upload Receipt Section - Hide when upload is complete */}
-                      {!isUploadComplete && (
-                        <div className="flex items-center justify-center mt-4 px-4">
-                          <div className="flex max-w-xs rounded-sm items-center justify-center px-4 py-2 border border-[#2B2B2B]">
-                            <Upload className="w-5 h-5 mr-2 text-white" />
-                            <span className="text-white text-base md:text-lg font-medium">
-                              Please upload Your Receipt
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                {/* Progress Bar */}
                 <div className="flex flex-col items-center mb-8">
                   <div className="w-60 md:w-80 bg-gray-700 rounded-full h-2 mb-2">
                     <div
@@ -919,7 +1052,6 @@ export default function BuyCDMModal({
                   </div>
                 </div>
 
-                {/* Action Button */}
                 <div className="px-4 md:px-0">
                   <button
                     onClick={
@@ -941,7 +1073,7 @@ export default function BuyCDMModal({
                         !isPaid &&
                         !isUploadComplete &&
                         !isOrderComplete) ||
-                      (isUpiPaid && !hasReceivedAdminDetails) // Add this condition to disable when waiting for bank details
+                      (isUpiPaid && !hasReceivedAdminDetails)
                     }
                     className={`w-full py-3 rounded-lg font-bold text-white transition-all ${
                       (paymentDetails?.adminUpiId ||
@@ -949,7 +1081,7 @@ export default function BuyCDMModal({
                         isPaid ||
                         isUploadComplete ||
                         isOrderComplete) &&
-                      !(isUpiPaid && !hasReceivedAdminDetails) // Ensure button is inactive when waiting for bank details
+                      !(isUpiPaid && !hasReceivedAdminDetails)
                         ? "bg-[#622DBF] hover:bg-purple-700 cursor-pointer"
                         : "bg-gray-600 cursor-not-allowed opacity-50"
                     }`}
@@ -980,7 +1112,6 @@ export default function BuyCDMModal({
                           </span>
                         </>
                       ) : isUpiPaid && !hasReceivedAdminDetails ? (
-                        // New condition for waiting state after UPI payment
                         <>
                           <Clock className="w-5 h-5 animate-pulse" />
                           <span>Waiting for Admin Bank Details</span>

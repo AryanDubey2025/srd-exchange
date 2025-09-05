@@ -61,6 +61,14 @@ export default function AdminRight() {
     timestamp: Date;
   } | null>(null)
 
+  const [uploadedReceipts, setUploadedReceipts] = useState<{
+    [orderId: string]: {
+      fileName: string;
+      fileUrl: string;
+      uploadedAt: Date;
+    }
+  }>({})
+
   const { rates, loading, refetch } = useRates()
   const { updateRates, loading: updating, error: updateError } = useAdminRates()
   const { makeAdminRequest } = useAdminAPI()
@@ -123,6 +131,33 @@ export default function AdminRight() {
     setNewSellRate('')
     setUpdateSuccess(false)
   }, [activeTab])
+
+  useEffect(() => {
+    const handleReceiptUploaded = (event: CustomEvent) => {
+      const { orderId, fileName, fileUrl } = event.detail;
+      
+      console.log('📄 Receipt uploaded notification received:', {
+        orderId,
+        fileName,
+        fileUrl
+      });
+      
+      setUploadedReceipts(prev => ({
+        ...prev,
+        [orderId]: {
+          fileName,
+          fileUrl,
+          uploadedAt: new Date()
+        }
+      }));
+    };
+  
+    window.addEventListener('receiptUploaded', handleReceiptUploaded as EventListener);
+  
+    return () => {
+      window.removeEventListener('receiptUploaded', handleReceiptUploaded as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     const handleUserReceivedMoney = (event: CustomEvent) => {
@@ -323,6 +358,32 @@ export default function AdminRight() {
   }
 
   const [sendingBankDetails, setSendingBankDetails] = useState(false)
+
+  const handleViewReceipt = async (fileUrl: string, fileName: string) => {
+    try {
+      console.log('📄 Viewing receipt:', { fileUrl, fileName });
+      
+      const response = await fetch('/api/view-receipt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ receiptUrl: fileUrl }),
+      });
+  
+      const result = await response.json();
+  
+      if (result.success) {
+        // Open PDF in new window
+        window.open(result.signedUrl, '_blank', 'width=800,height=600');
+      } else {
+        alert('Failed to open receipt: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error viewing receipt:', error);
+      alert('Failed to open receipt');
+    }
+  };
 
   const handleSendBankDetails = async () => {
     if (!selectedOrder) return;
@@ -1154,6 +1215,90 @@ export default function AdminRight() {
             </div>
           </motion.div>
         )}
+         {selectedOrder && (
+            <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
+              <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">
+                Uploaded Payment Receipts
+              </h3>
+              
+              {uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id] || selectedOrder.paymentProof ? (
+                <div className="space-y-3">
+                  {/* Receipt from state (newly uploaded) */}
+                  {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id]) && (
+                    <motion.div
+                      className="bg-[#1E1C1C] border border-gray-600/50 rounded-lg p-4"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <FileText className="w-5 h-5 text-purple-400" />
+                          <div>
+                            <div className="text-white font-medium font-montserrat">
+                              {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id])?.fileName || 'Payment Receipt'}
+                            </div>
+                            <div className="text-xs text-gray-400 font-montserrat">
+                              Uploaded: {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id])?.uploadedAt?.toLocaleString() || 'Just now'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const receipt = uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id];
+                            if (receipt) {
+                              handleViewReceipt(receipt.fileUrl, receipt.fileName);
+                            }
+                          }}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all font-montserrat"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <FileText className="w-4 h-4" />
+                            <span>View PDF</span>
+                          </div>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+               
+                  {selectedOrder.paymentProof && !uploadedReceipts[selectedOrder.fullId] && !uploadedReceipts[selectedOrder.id] && (
+                    <div className="bg-[#1E1C1C] border border-gray-600/50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <FileText className="w-5 h-5 text-green-400" />
+                          <div>
+                            <div className="text-white font-medium font-montserrat">
+                              Payment Receipt (Existing)
+                            </div>
+                            <div className="text-xs text-gray-400 font-montserrat">
+                              Previously uploaded
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleViewReceipt(selectedOrder.paymentProof!, 'payment-receipt.pdf')}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-all font-montserrat"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <FileText className="w-4 h-4" />
+                            <span>View PDF</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-400 font-montserrat">No payment receipts uploaded yet</p>
+                  <p className="text-gray-500 text-sm font-montserrat">
+                    User will upload payment receipt after making the transfer
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
       </AnimatePresence>
     </div>
   )

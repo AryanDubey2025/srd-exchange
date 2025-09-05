@@ -301,7 +301,7 @@ export default function SellUPIModal({
                 )}
 
                 <div className="px-4 md:px-0">
-                  {/* 🔥 ADD: Warning message before confirmation button */}
+       
                   {isWaitingConfirmation && !isMoneyReceived && (
                     <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                       <div className="text-sm text-red-400 font-medium text-center">
