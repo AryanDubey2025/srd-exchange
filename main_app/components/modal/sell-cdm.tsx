@@ -12,10 +12,10 @@ import {
   CircleQuestionMark,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useBankDetails } from '@/hooks/useBankDetails';
+import { useBankDetails } from "@/hooks/useBankDetails";
 import { useModalState } from "@/hooks/useModalState";
-import { useWalletManager } from '@/hooks/useWalletManager';
-import { useRates } from '@/hooks/useRates';
+import { useWalletManager } from "@/hooks/useWalletManager";
+import { useRates } from "@/hooks/useRates";
 
 interface SellCDMModalProps {
   isOpen: boolean;
@@ -37,91 +37,98 @@ export default function SellCDMModal({
   const [isCoinSent, setIsCoinSent] = useState(false);
   const { bankDetails } = useBankDetails();
   const [accountNumber, setAccountNumber] = useState("");
-  
+
   const { saveModalState, getModalState, clearModalState } = useModalState();
   const { completeSellOrderOnChain } = useWalletManager();
   const { getSellRate, loading: ratesLoading } = useRates();
 
-  // Calculate display amounts using proper API rates
-  let displayUsdtAmount = '';
-  let displayRupeeAmount = '';
+  let displayUsdtAmount = "";
+  let displayRupeeAmount = "";
   let currentRate = 0;
-  let paymentMethod = 'CDM'; // Default for this modal
+  let paymentMethod = "CDM";
 
-  // Determine payment method from order data if available
   if (orderData?.orderType) {
-    if (orderData.orderType.includes('CDM')) {
-      paymentMethod = 'CDM';
-    } else if (orderData.orderType.includes('UPI')) {
-      paymentMethod = 'UPI';
+    if (orderData.orderType.includes("CDM")) {
+      paymentMethod = "CDM";
+    } else if (orderData.orderType.includes("UPI")) {
+      paymentMethod = "UPI";
     }
   }
 
-
   const calculateRupeeFromUSDT = (usdtAmount: string, sellRate: number) => {
-    const numericAmount = parseFloat(usdtAmount)
-    if (isNaN(numericAmount) || numericAmount <= 0) return '0'
-    // For selling: USDT * sell_rate = rupees
-    const rupeeAmount = numericAmount * sellRate
-    return rupeeAmount.toFixed(2)
-  }
+    const numericAmount = parseFloat(usdtAmount);
+    if (isNaN(numericAmount) || numericAmount <= 0) return "0";
+
+    const rupeeAmount = numericAmount * sellRate;
+    return rupeeAmount.toFixed(2);
+  };
 
   if (orderData) {
-    if (orderData.orderType && orderData.orderType.includes('SELL')) {
-      // For sell orders from database: orderData.usdtAmount is what user is selling
-      displayUsdtAmount = orderData.usdtAmount ? orderData.usdtAmount.toString() : usdtAmount || '0';
-      
-      // Get the current sell rate from API - same logic as buysellSection.tsx
-      const currentPaymentMethod = paymentMethod === 'CDM' ? 'CDM' : 'UPI';
-      currentRate = getSellRate ? getSellRate(currentPaymentMethod) : (paymentMethod === 'CDM' ? 92.0 : 92.5);
-      
-      // Calculate rupees using the same method as buysellSection.tsx
+    if (orderData.orderType && orderData.orderType.includes("SELL")) {
+      displayUsdtAmount = orderData.usdtAmount
+        ? orderData.usdtAmount.toString()
+        : usdtAmount || "0";
+
+      const currentPaymentMethod = paymentMethod === "CDM" ? "CDM" : "UPI";
+      currentRate = getSellRate
+        ? getSellRate(currentPaymentMethod)
+        : paymentMethod === "CDM"
+        ? 92.0
+        : 92.5;
+
       if (orderData.usdtAmount && currentRate > 0) {
-        displayRupeeAmount = calculateRupeeFromUSDT(orderData.usdtAmount.toString(), currentRate);
+        displayRupeeAmount = calculateRupeeFromUSDT(
+          orderData.usdtAmount.toString(),
+          currentRate
+        );
       } else {
-        displayRupeeAmount = amount || '0';
+        displayRupeeAmount = amount || "0";
       }
-        
-      console.log('📊 CDM Sell Modal - Calculated amounts:', {
+
+      console.log("📊 CDM Sell Modal - Calculated amounts:", {
         displayUsdtAmount,
         displayRupeeAmount,
         currentRate,
         paymentMethod,
         orderType: orderData.orderType,
         apiRate: currentRate,
-        getSellRateExists: !!getSellRate
+        getSellRateExists: !!getSellRate,
       });
     } else {
-      // Fallback to props
-      displayUsdtAmount = usdtAmount || '0';
-      displayRupeeAmount = amount || '0';
-      const usdtNum = parseFloat(usdtAmount || '1');
-      const amountNum = parseFloat(amount || '0');
+      displayUsdtAmount = usdtAmount || "0";
+      displayRupeeAmount = amount || "0";
+      const usdtNum = parseFloat(usdtAmount || "1");
+      const amountNum = parseFloat(amount || "0");
       currentRate = usdtNum > 0 ? amountNum / usdtNum : 92.0;
     }
   } else {
-    // No order data, use props (user just entered values from buysellSection)
-    displayUsdtAmount = usdtAmount || '0'; // User entered USDT
-    displayRupeeAmount = amount || '0';     // Already calculated in buysellSection
-    
-    // Get current rate for display
-    const currentPaymentMethod = 'CDM';
+    displayUsdtAmount = usdtAmount || "0";
+    displayRupeeAmount = amount || "0";
+
+    const currentPaymentMethod = "CDM";
     currentRate = getSellRate ? getSellRate(currentPaymentMethod) : 92.0;
   }
 
-  // Ensure currentRate is always a valid number
-  if (!currentRate || typeof currentRate !== 'number' || isNaN(currentRate) || currentRate <= 0) {
-    currentRate = paymentMethod === 'CDM' ? 92.0 : 92.5;
-    console.warn('Invalid currentRate, using fallback:', currentRate);
+  if (
+    !currentRate ||
+    typeof currentRate !== "number" ||
+    isNaN(currentRate) ||
+    currentRate <= 0
+  ) {
+    currentRate = paymentMethod === "CDM" ? 92.0 : 92.5;
+    console.warn("Invalid currentRate, using fallback:", currentRate);
   }
 
   useEffect(() => {
     if (isOpen && orderData) {
-      console.log('📂 Loading SELL CDM modal state for order:', orderData.fullId || orderData.id);
+      console.log(
+        "📂 Loading SELL CDM modal state for order:",
+        orderData.fullId || orderData.id
+      );
       const savedState = getModalState(orderData.fullId || orderData.id);
       if (savedState) {
-        console.log('📋 Restoring SELL CDM modal state:', savedState);
-        
+        console.log("📋 Restoring SELL CDM modal state:", savedState);
+
         if (savedState.currentStep >= 2) {
           setIsMoneyReceived(true);
           setIsWaitingConfirmation(true);
@@ -133,7 +140,7 @@ export default function SellCDMModal({
           setIsMoneyReceived(false);
         }
       } else {
-        console.log('🆕 No saved SELL CDM state found, starting fresh');
+        console.log("🆕 No saved SELL CDM state found, starting fresh");
         setIsWaitingConfirmation(false);
         setIsMoneyReceived(false);
       }
@@ -143,25 +150,31 @@ export default function SellCDMModal({
   useEffect(() => {
     if (orderData && isOpen) {
       const currentStep = isMoneyReceived ? 2 : isWaitingConfirmation ? 1 : 0;
-      
-      console.log('💾 Saving SELL CDM modal state:', {
+
+      console.log("💾 Saving SELL CDM modal state:", {
         orderId: orderData.fullId || orderData.id,
-        currentStep
+        currentStep,
       });
-      
+
       saveModalState(
         orderData.fullId || orderData.id,
-        'SELL_CDM',
+        "SELL_CDM",
         currentStep,
         { accountNumber },
         null
       );
     }
-  }, [isWaitingConfirmation, isMoneyReceived, orderData, isOpen, accountNumber]);
+  }, [
+    isWaitingConfirmation,
+    isMoneyReceived,
+    orderData,
+    isOpen,
+    accountNumber,
+  ]);
 
   useEffect(() => {
     if (isOpen && !orderData) {
-      console.log('🔄 Resetting SELL CDM modal state for new order');
+      console.log("🔄 Resetting SELL CDM modal state for new order");
       setIsWaitingConfirmation(false);
       setIsMoneyReceived(false);
       setAccountNumber("");
@@ -181,46 +194,49 @@ export default function SellCDMModal({
 
   const handleMoneyReceived = async () => {
     try {
-      console.log('🔗 Completing sell order on blockchain...');
+      console.log("🔗 Completing sell order on blockchain...");
       if (orderData?.blockchainOrderId) {
         await completeSellOrderOnChain(parseInt(orderData.blockchainOrderId));
       }
       setIsMoneyReceived(true);
       setIsCoinSent(true);
-      
+
       // 🔥 ADD: Broadcast event to admin center
       if (orderData) {
-        window.dispatchEvent(new CustomEvent('userReceivedMoney', {
-          detail: {
-            orderId: orderData.fullId || orderData.id,
-            orderType: orderData.orderType,
-            amount: displayRupeeAmount,
-            timestamp: new Date().toISOString()
-          }
-        }));
-        
-        console.log('📢 Broadcasted user money received event:', {
+        window.dispatchEvent(
+          new CustomEvent("userReceivedMoney", {
+            detail: {
+              orderId: orderData.fullId || orderData.id,
+              orderType: orderData.orderType,
+              amount: displayRupeeAmount,
+              timestamp: new Date().toISOString(),
+            },
+          })
+        );
+
+        console.log("📢 Broadcasted user money received event:", {
           orderId: orderData.fullId || orderData.id,
-          amount: displayRupeeAmount
+          amount: displayRupeeAmount,
         });
       }
-      
+
       console.log("💰 Money Received on Account clicked");
     } catch (error) {
-      console.error('❌ Error completing sell order on blockchain:', error);
+      console.error("❌ Error completing sell order on blockchain:", error);
       setIsMoneyReceived(true);
       setIsCoinSent(true);
-      
-      // Still broadcast event even if blockchain operation fails
+
       if (orderData) {
-        window.dispatchEvent(new CustomEvent('userReceivedMoney', {
-          detail: {
-            orderId: orderData.fullId || orderData.id,
-            orderType: orderData.orderType,
-            amount: displayRupeeAmount,
-            timestamp: new Date().toISOString()
-          }
-        }));
+        window.dispatchEvent(
+          new CustomEvent("userReceivedMoney", {
+            detail: {
+              orderId: orderData.fullId || orderData.id,
+              orderType: orderData.orderType,
+              amount: displayRupeeAmount,
+              timestamp: new Date().toISOString(),
+            },
+          })
+        );
       }
     }
   };
@@ -232,7 +248,9 @@ export default function SellCDMModal({
     onClose();
   };
 
-  const orderDisplayId = orderData ? `Order ${orderData.id || orderData.fullId?.slice(-6) || '14'}` : 'Order 14';
+  const orderDisplayId = orderData
+    ? `Order ${orderData.id || orderData.fullId?.slice(-6) || "14"}`
+    : "Order 14";
 
   return (
     <AnimatePresence>
@@ -283,9 +301,15 @@ export default function SellCDMModal({
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-[#2F2F2F]">
               <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${
-                  isMoneyReceived ? "bg-gray-400" : isWaitingConfirmation ? "bg-green-400" : "bg-yellow-400"
-                }`}></div>
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    isMoneyReceived
+                      ? "bg-gray-400"
+                      : isWaitingConfirmation
+                      ? "bg-green-400"
+                      : "bg-yellow-400"
+                  }`}
+                ></div>
                 <span className="text-white font-medium">{orderDisplayId}</span>
               </div>
 
@@ -294,45 +318,44 @@ export default function SellCDMModal({
                 <span>How to sell?</span>
               </div>
 
-              <button onClick={onClose} className="text-white hover:text-white transition-colors">
+              <button
+                onClick={onClose}
+                className="text-white hover:text-white transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-
             <div className="overflow-y-auto max-h-[calc(90vh-80px)] md:max-h-[calc(90vh-80px)]">
               <div className="p-4 text-center">
-           
                 <div className="mb-6">
-               
                   <div className="text-4xl md:text-4xl font-bold text-white mb-2">
                     {parseFloat(displayUsdtAmount).toFixed(4)} USDT
                   </div>
-                  
-                 
+
                   <div className="text-2xl md:text-2xl font-medium text-green-400 mb-2">
                     You'll receive ₹{parseFloat(displayRupeeAmount).toFixed(2)}
                   </div>
-               
 
                   <div className="text-xs text-gray-400 mb-2">
-                    Selling {parseFloat(displayUsdtAmount).toFixed(4)} USDT • Getting ₹{parseFloat(displayRupeeAmount).toFixed(2)} INR
+                    Selling {parseFloat(displayUsdtAmount).toFixed(4)} USDT •
+                    Getting ₹{parseFloat(displayRupeeAmount).toFixed(2)} INR
                   </div>
-                  
 
                   <div className="text-xs text-gray-500 mb-2">
                     {ratesLoading ? (
-                      'Loading rate...'
+                      "Loading rate..."
                     ) : (
                       <>
-                        Rate: ₹{currentRate.toFixed(2)} per USDT ({paymentMethod})
-                        <span className="ml-2 text-blue-400">(Current API rate)</span>
+                        Rate: ₹{currentRate.toFixed(2)} per USDT (
+                        {paymentMethod})
+                        <span className="ml-2 text-blue-400">
+                          (Current API rate)
+                        </span>
                       </>
                     )}
                   </div>
-                  
-                 
-                  
+
                   <div className="flex items-center justify-center">
                     <svg
                       className="w-5 h-5 text-white mr-2"
@@ -348,20 +371,34 @@ export default function SellCDMModal({
                       />
                     </svg>
                   </div>
-                  <div className="text-xs text-white mt-2 mb-4">{paymentMethod} Sell Order</div>
+                  <div className="text-xs text-white mt-2 mb-4">
+                    {paymentMethod} Sell Order
+                  </div>
                 </div>
 
                 {/* Payment Method Badge */}
                 <div className="flex items-center justify-center space-x-4 md:space-x-10 mb-6 flex-wrap gap-2">
                   <div className="bg-[#1D1C1C] text-black px-2 py-1 rounded text-sm font-medium flex items-center space-x-2">
-                    <img src={paymentMethod === 'CDM' ? "/bank.svg" : "/phonepay-gpay.svg"} alt="" className="w-5 h-5" />
+                    <img
+                      src={
+                        paymentMethod === "CDM"
+                          ? "/bank.svg"
+                          : "/phonepay-gpay.svg"
+                      }
+                      alt=""
+                      className="w-5 h-5"
+                    />
                     <span className="text-white">{paymentMethod}</span>
                   </div>
                   <span className="text-white px-2 py-1 bg-[#1D1C1C] rounded-md text-sm">
                     Sell Order
                   </span>
                   <span className="text-white px-2 py-1 bg-[#1D1C1C] rounded-md text-sm">
-                    {orderData ? new Date(orderData.createdAt || Date.now()).toLocaleTimeString() : 'Today'}
+                    {orderData
+                      ? new Date(
+                          orderData.createdAt || Date.now()
+                        ).toLocaleTimeString()
+                      : "Today"}
                   </span>
                 </div>
 
@@ -369,13 +406,16 @@ export default function SellCDMModal({
                 {orderData && (
                   <div className="mb-6 p-3 rounded-lg">
                     <div className="text-sm text-blue-400 font-medium mb-1">
-                      Order Status: {orderData.status || 'PENDING'}
+                      Order Status: {orderData.status || "PENDING"}
                     </div>
                     <div className="text-xs text-gray-400">
-                      {orderData.orderType} • Selling: {parseFloat(displayUsdtAmount).toFixed(4)} USDT → Receiving: ₹{parseFloat(displayRupeeAmount).toFixed(2)}
+                      {orderData.orderType} • Selling:{" "}
+                      {parseFloat(displayUsdtAmount).toFixed(4)} USDT →
+                      Receiving: ₹{parseFloat(displayRupeeAmount).toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      Payment Method: {paymentMethod} • Rate: ₹{currentRate.toFixed(2)}/USDT
+                      Payment Method: {paymentMethod} • Rate: ₹
+                      {currentRate.toFixed(2)}/USDT
                     </div>
                   </div>
                 )}
@@ -387,10 +427,13 @@ export default function SellCDMModal({
                       <div className="h-2 rounded-full w-full"></div>
                     </div>
                     <div className="text-green-400 text-sm font-medium mt-1">
-                      ✅ Payment confirmed! {parseFloat(displayUsdtAmount).toFixed(4)} USDT sent to admin
+                      ✅ Payment confirmed!{" "}
+                      {parseFloat(displayUsdtAmount).toFixed(4)} USDT sent to
+                      admin
                     </div>
                     <div className="text-gray-400 text-xs mt-1">
-                      You received ₹{parseFloat(displayRupeeAmount).toFixed(2)} via {paymentMethod}
+                      You received ₹{parseFloat(displayRupeeAmount).toFixed(2)}{" "}
+                      via {paymentMethod}
                     </div>
                   </div>
                 )}
@@ -399,11 +442,12 @@ export default function SellCDMModal({
                   {isWaitingConfirmation && !isMoneyReceived && (
                     <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                       <div className="text-sm text-red-400 font-medium text-center">
-                        ⚠️ By clicking "I Confirm," you Release USDT and Received INR. No reversal after this!
+                        ⚠️ By clicking "I Confirm," you Release USDT and
+                        Received INR. No reversal after this!
                       </div>
                     </div>
                   )}
-                  
+
                   <button
                     onClick={
                       isMoneyReceived

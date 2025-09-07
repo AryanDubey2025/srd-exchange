@@ -10,7 +10,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black">
       <Navbar />
-      {/* 🔥 ADD: Padding top to account for fixed navbar */}
       <div className="pt-20"> 
         <section id="home">
           <LandingPage />
