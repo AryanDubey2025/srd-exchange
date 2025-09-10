@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     console.log('Where clause:', whereClause);
 
-    // 🔥 FIX: Use only select, not include + select together
+
     const orders = await prisma.order.findMany({
       where: whereClause,
       select: {
@@ -88,7 +88,6 @@ export async function GET(request: NextRequest) {
         adminNotes: true,
         buyRate: true,
         sellRate: true,
-        // 🔥 NEW: Include the user confirmation fields
         userConfirmedReceived: true,
         userConfirmedAt: true,
         isVerifiedOnChain: true,
@@ -96,7 +95,7 @@ export async function GET(request: NextRequest) {
         transactionHash: true,
         createdAt: true,
         updatedAt: true,
-        // 🔥 FIX: Select user fields explicitly
+        
         user: {
           select: {
             id: true,
