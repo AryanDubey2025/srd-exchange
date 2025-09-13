@@ -44,7 +44,7 @@ const CONTRACTS = {
     [56]: "0x55d398326f99059fF775485246999027B3197955" as `0x${string}`, 
   },
   P2P_TRADING: {
-    [56]: "0xD64d78dCFc550F131813a949c27b2b439d908F54" as `0x${string}`,
+    [56]: "0xbfb247eA56F806607f2346D9475F669F30EAf2fB" as `0x${string}`,
   },
 };
 

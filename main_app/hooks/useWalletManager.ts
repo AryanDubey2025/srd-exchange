@@ -23,7 +23,7 @@ const CONTRACTS = {
     [56]: "0x55d398326f99059fF775485246999027B3197955" as Address, // BSC Mainnet only
   },
   P2P_TRADING: {
-    [56]: "0xD64d78dCFc550F131813a949c27b2b439d908F54" as Address, // BSC Mainnet only
+    [56]: "0xbfb247eA56F806607f2346D9475F669F30EAf2fB" as Address, // BSC Mainnet only
   },
 };
 
@@ -477,7 +477,9 @@ export function useWalletManager() {
         functionName: "allowance",
         args: [
           address,
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[
+            chainId as keyof typeof CONTRACTS.P2P_TRADING
+          ],
         ],
       });
 
@@ -664,7 +666,7 @@ export function useWalletManager() {
       );
     }
   };
-  ``;
+
   const completeSellOrderOnChain = async (orderId: number) => {
     if (!address) throw new Error("Wallet not connected");
     if (!isOnBSC) throw new Error("Please switch to a supported BSC network");
@@ -1296,180 +1298,307 @@ export function useWalletManager() {
     inrAmount: string,
     orderType: string
   ): Promise<string> => {
-    if (!address) throw new Error("Wallet not connected");
-    if (chainId !== 56) throw new Error("Please switch to BSC Mainnet");
+    if (!address) throw new Error('Wallet not connected');
+    if (chainId !== 56) throw new Error('Please switch to BSC Mainnet');
 
     try {
-      console.log("🚀 Creating completely gasless sell order:", {
+      console.log('🚀 Creating completely gasless sell order (Gas Station handles ALL fees including approval):', {
         usdtAmount,
         inrAmount,
         orderType,
-        userAddress: address,
+        userAddress: address
       });
 
-      // Get admin wallet (with fallback)
-      let adminWallet = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E"; // Gas station address as fallback
-
-      try {
-        adminWallet = (await readContract(config as any, {
-          address: CONTRACTS.P2P_TRADING[56],
-          abi: [
-            {
-              inputs: [],
-              name: "getAdminWallet",
-              outputs: [{ internalType: "address", name: "", type: "address" }],
-              stateMutability: "view",
-              type: "function",
-            },
-          ],
-          functionName: "getAdminWallet",
-        })) as string;
-
-        console.log("✅ Got admin wallet from contract:", adminWallet);
-      } catch (error) {
-        console.warn(
-          "⚠️ Could not get admin wallet from contract, using fallback:",
-          adminWallet
-        );
+      // Pre-flight balance check
+      const balanceCheck = await verifyUSDTBalance(usdtAmount);
+      if (!balanceCheck.hasBalance) {
+        console.error('❌ Pre-flight balance check failed:', balanceCheck.error);
+        throw new Error(balanceCheck.error || 'Insufficient USDT balance');
       }
 
-      console.log("🚀 Calling Gas Station for complete gasless sell order...");
+      console.log('✅ Pre-flight balance check passed:', {
+        required: usdtAmount,
+        available: balanceCheck.currentBalance
+      });
 
-      // Call the complete gasless API
+      // Get admin wallet
+      let adminWallet = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E"; 
+      try {
+        adminWallet = await readContract(config as any, {
+          address: CONTRACTS.P2P_TRADING[56],
+          abi: [{
+            inputs: [],
+            name: "getAdminWallet",
+            outputs: [{ internalType: "address", name: "", type: "address" }],
+            stateMutability: "view",
+            type: "function",
+          }],
+          functionName: "getAdminWallet",
+        }) as string;
+        console.log('✅ Got admin wallet from contract:', adminWallet);
+      } catch (error) {
+        console.warn('⚠️ Using fallback admin wallet:', adminWallet);
+      }
+
+      console.log('🚀 Calling Gas Station for COMPLETELY gasless sell order...');
+
+      // Call the complete gasless API with timeout protection
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      let gasStationResponse: Response;
+      let result: any;
 
       try {
-        const gasStationResponse = await fetch(
-          "/api/gas-station/complete-gasless-sell",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userAddress: address,
-              adminAddress: adminWallet,
-              usdtAmount,
-              inrAmount: parseFloat(inrAmount),
-              orderType,
-              chainId: 56,
-            }),
-            signal: controller.signal,
-          }
-        );
+        gasStationResponse = await fetch('/api/gas-station/complete-gasless-sell', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userAddress: address,
+            adminAddress: adminWallet,
+            usdtAmount,
+            inrAmount: parseFloat(inrAmount),
+            orderType,
+            chainId: 56
+          }),
+          signal: controller.signal
+        });
 
         clearTimeout(timeoutId);
-        const result = await gasStationResponse.json();
 
-        if (!gasStationResponse.ok) {
-          console.error("❌ Gas Station API error:", result);
+        console.log('📡 Gas Station API response:', {
+          ok: gasStationResponse.ok,
+          status: gasStationResponse.status,
+          statusText: gasStationResponse.statusText
+        });
 
-          if (result.code === "USER_NEEDS_APPROVAL") {
-            // User needs to approve Gas Station first
-            throw new Error("APPROVAL_REQUIRED");
-          } else if (result.code === "INSUFFICIENT_BALANCE") {
-            throw new Error("Insufficient USDT balance for this transaction.");
-          } else if (result.code === "GAS_STATION_NOT_READY") {
-            throw new Error(
-              "Gas Station is temporarily unavailable. Please try again in a few minutes."
-            );
-          } else {
-            throw new Error(
-              result.error || "Gasless transaction failed. Please try again."
-            );
-          }
+        // Parse response
+        try {
+          result = await gasStationResponse.json();
+          console.log('📋 Gas Station API result (detailed):', {
+            result,
+            hasSuccess: 'success' in result,
+            hasTxHash: 'txHash' in result,
+            hasCode: 'code' in result,
+            hasNeedsApproval: 'needsApproval' in result,
+            hasMethod: 'method' in result,
+            successValue: result.success,
+            txHashValue: result.txHash,
+            codeValue: result.code,
+            needsApprovalValue: result.needsApproval,
+            methodValue: result.method,
+            allKeys: Object.keys(result || {})
+          });
+        } catch (parseError) {
+          console.error('❌ Failed to parse Gas Station response:', parseError);
+          throw new Error('Invalid response from Gas Station API');
         }
 
-        console.log(
-          "✅ Completely gasless sell order created successfully:",
-          result.txHash
-        );
-        console.log(
-          "💰 Gas Station paid ALL transaction fees - user paid ZERO gas!"
-        );
-
-        return result.txHash;
       } catch (fetchError) {
         clearTimeout(timeoutId);
-
-        if (fetchError instanceof Error && fetchError.name === "AbortError") {
-          throw new Error("Transaction timed out. Please try again.");
+        
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Transaction timed out. Please try again.');
         }
-
-        throw fetchError;
+        
+        console.error('❌ Gas Station API fetch error:', fetchError);
+        throw new Error('Failed to communicate with Gas Station API');
       }
+
+      // 🔥 FIX: Enhanced result validation with comprehensive logging
+      if (!result || typeof result !== 'object') {
+        console.error('❌ Invalid result structure from Gas Station:', {
+          result,
+          type: typeof result,
+          isNull: result === null,
+          isUndefined: result === undefined
+        });
+        throw new Error('Invalid response from Gas Station service - no data received');
+      }
+
+      // 🔥 FIX: Handle HTTP error responses first (status >= 400)
+      if (!gasStationResponse.ok) {
+        console.error('❌ Gas Station API HTTP error:', {
+          status: gasStationResponse.status,
+          statusText: gasStationResponse.statusText,
+          result
+        });
+        
+        const errorCode = result.code || 'UNKNOWN_ERROR';
+        const errorMessage = result.error || `Gas Station API error: ${gasStationResponse.status}`;
+        
+        // Handle specific error codes from HTTP error responses
+        if (errorCode === 'USER_FUNDED_FOR_APPROVAL') {
+          console.log('💰 Gas Station funded user wallet for approval (via HTTP error)');
+          throw new Error('GAS_STATION_FUNDED_APPROVAL');
+        } else if (errorCode === 'USER_HAS_BNB_NEEDS_APPROVAL') {
+          console.log('✅ User already has sufficient BNB, needs approval only (via HTTP error)');
+          throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
+        } else if (errorCode === 'APPROVAL_REQUIRED') {
+          throw new Error('MANUAL_APPROVAL_REQUIRED');
+        } else if (errorCode === 'INSUFFICIENT_BALANCE') {
+          throw new Error('Insufficient USDT balance for this transaction.');
+        } else if (errorCode === 'GAS_STATION_NOT_READY') {
+          throw new Error('Gas Station is temporarily unavailable. Please try again in a few minutes.');
+        } else if (errorCode === 'GAS_STATION_LOW_BALANCE' || errorCode === 'GAS_STATION_INSUFFICIENT_FUNDS' || errorCode === 'GAS_STATION_CANNOT_FUND_USER') {
+          throw new Error('Gas Station is temporarily unavailable due to low funds. Please try again later.');
+        } else if (errorCode === 'NETWORK_TIMEOUT') {
+          throw new Error('Network timeout. Please try again.');
+        } else {
+          throw new Error(errorMessage);
+        }
+      }
+
+      // 🔥 FIX: Handle successful HTTP responses (status 200-299)
+      console.log('✅ HTTP response successful, analyzing result structure...');
+
+      // Check for explicit success responses
+      if (result.success === true) {
+        console.log('🎉 Explicit success response detected');
+        
+        // For successful responses, txHash must be present and valid
+        if (!result.txHash) {
+          console.error('❌ Successful response missing txHash:', result);
+          throw new Error('Transaction completed but no transaction hash received');
+        }
+        
+        if (typeof result.txHash !== 'string') {
+          console.error('❌ Invalid txHash type:', typeof result.txHash, result.txHash);
+          throw new Error('Invalid transaction hash format received');
+        }
+        
+        if (result.txHash.length === 0) {
+          console.error('❌ Empty txHash received:', result);
+          throw new Error('Empty transaction hash received');
+        }
+        
+        console.log('✅ USDT transfer completed successfully via Gas Station:', result.txHash);
+        console.log('💰 User USDT transferred to admin account - Gas Station paid all fees!');
+        
+        return result.txHash;
+      }
+
+      // 🔥 FIX: Handle approval flow responses (success: false but valid state)
+      if (result.success === false && result.needsApproval === true) {
+        console.log('💡 Approval flow response detected:', {
+          code: result.code,
+          txHash: result.txHash,
+          fundingTxHash: result.fundingTxHash,
+          userHasBnb: result.userHasBnb
+        });
+        
+        if (result.code === 'USER_FUNDED_FOR_APPROVAL') {
+          console.log('💰 Gas Station funded user wallet for approval');
+          throw new Error('GAS_STATION_FUNDED_APPROVAL');
+        } else if (result.code === 'USER_HAS_BNB_NEEDS_APPROVAL') {
+          console.log('✅ User already has sufficient BNB, needs approval only');
+          throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
+        } else if (result.code === 'APPROVAL_REQUIRED') {
+          throw new Error('MANUAL_APPROVAL_REQUIRED');
+        } else {
+          // Generic approval required
+          console.log('💡 Generic approval required response');
+          throw new Error('USER_APPROVAL_REQUIRED');
+        }
+      }
+
+      // 🔥 FIX: Handle other response patterns
+      if (result.success === false && !result.needsApproval) {
+        console.error('❌ Explicit failure response:', {
+          success: result.success,
+          error: result.error,
+          code: result.code,
+          message: result.message
+        });
+        
+        const errorMessage = result.error || result.message || 'Gas Station operation failed';
+        throw new Error(errorMessage);
+      }
+
+      // 🔥 FIX: Handle responses without explicit success field
+      if (typeof result.success === 'undefined') {
+        console.log('🔍 Response without explicit success field, checking for transaction hash...');
+        
+        if (result.txHash && typeof result.txHash === 'string' && result.txHash.length > 0) {
+          console.log('✅ Found transaction hash in response without success field:', result.txHash);
+          return result.txHash;
+        }
+        
+        if (result.method || result.code) {
+          console.log('🔍 Response contains method/code but no txHash:', {
+            method: result.method,
+            code: result.code,
+            txHash: result.txHash
+          });
+          
+          // Handle method-based responses
+          if (result.method === 'user_has_bnb_needs_approval' || result.code === 'USER_HAS_BNB_NEEDS_APPROVAL') {
+            throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
+          } else if (result.method === 'user_funded_for_approval' || result.code === 'USER_FUNDED_FOR_APPROVAL') {
+            throw new Error('GAS_STATION_FUNDED_APPROVAL');
+          } else if (result.method === 'gasless_transfer_completed') {
+            if (result.txHash) {
+              return result.txHash;
+            } else {
+              throw new Error('Transfer completed but missing transaction hash');
+            }
+          }
+        }
+      }
+
+      // 🔥 FIX: Final fallback for unexpected response structures
+      console.error('❌ Unexpected response structure from Gas Station:', {
+        success: result.success,
+        hasTxHash: 'txHash' in result,
+        hasNeedsApproval: 'needsApproval' in result,
+        hasMethod: 'method' in result,
+        hasCode: 'code' in result,
+        hasError: 'error' in result,
+        hasMessage: 'message' in result,
+        successType: typeof result.success,
+        txHashType: typeof result.txHash,
+        allKeys: Object.keys(result),
+        result
+      });
+
+      // Try to extract meaningful error message from the response
+      const meaningfulError = result.error || result.message || 'Unknown response format from Gas Station';
+      throw new Error(`Unexpected response format: ${meaningfulError}`);
+
     } catch (error) {
-      console.error("❌ Completely gasless sell order creation failed:", error);
-
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-
-      if (errorMessage.includes("APPROVAL_REQUIRED")) {
-        throw new Error("APPROVAL_REQUIRED"); // Special error code for frontend
-      } else if (errorMessage.includes("Insufficient USDT balance")) {
-        throw new Error("Insufficient USDT balance for this transaction.");
-      } else if (
-        errorMessage.includes("Gas Station is temporarily unavailable")
-      ) {
-        throw new Error(
-          "Gas Station is temporarily unavailable. Please try again later."
-        );
-      } else if (errorMessage.includes("timeout")) {
-        throw new Error("Request timed out. Please try again.");
+      console.error('❌ Completely gasless sell order creation failed:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Pass through the specific error messages
+      if (errorMessage.includes('GAS_STATION_FUNDED_APPROVAL')) {
+        throw new Error('GAS_STATION_FUNDED_APPROVAL');
+      } else if (errorMessage.includes('USER_HAS_BNB_NEEDS_APPROVAL')) {
+        throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
+      } else if (errorMessage.includes('MANUAL_APPROVAL_REQUIRED') || errorMessage.includes('USER_APPROVAL_REQUIRED')) {
+        throw new Error('MANUAL_APPROVAL_REQUIRED');
+      } else if (errorMessage.includes('Insufficient USDT balance')) {
+        throw new Error('Insufficient USDT balance for this transaction.');
+      } else if (errorMessage.includes('Gas Station is temporarily unavailable')) {
+        throw new Error('Gas Station is temporarily unavailable. Please try again later.');
+      } else if (errorMessage.includes('timeout')) {
+        throw new Error('Request timed out. Please try again.');
       } else {
         throw new Error(errorMessage);
       }
     }
   };
 
-  // 🔥 NEW: Gas Station funds user's approval transaction
-  const requestGasForApproval = async (): Promise<string> => {
-    if (!address || chainId !== 56)
-      throw new Error("Please connect to BSC Mainnet");
-
-    try {
-      console.log("💰 Requesting gas funding from Gas Station for approval...");
-
-      const response = await fetch("/api/gas-station/fund-user-approval", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userAddress: address,
-          chainId: 56,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Gas funding failed");
-      }
-
-      console.log("✅ Gas Station funded approval transaction:", result.txHash);
-      console.log("💡 Now you can approve Gas Station for USDT spending!");
-
-      return result.txHash;
-    } catch (error) {
-      console.error("❌ Gas funding request failed:", error);
-      throw new Error(
-        "Failed to get gas funding from Gas Station. Please try again."
-      );
-    }
-  };
-
-  // 🔥 NEW: Handle approval after gas funding
-  const approveGasStationAfterFunding = async (): Promise<boolean> => {
+  const approveGasStationAfterFunding = async (usdtAmount: string, inrAmount: string, orderType: string): Promise<boolean> => {
     if (!address || chainId !== 56) return false;
 
     try {
-      const gasStationAddress =
-        "0x1dA2b030808D46678284dB112bfe066AA9A8be0E" as Address;
-      const maxApprovalAmount = parseUnits("1000000000", 18); // 1B USDT
+      const gasStationAddress = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E" as Address;
+      const maxApprovalAmount = parseUnits("1000000000", 18); 
 
-      console.log(
-        "🔓 Approving Gas Station for gasless sells (funded by Gas Station)..."
-      );
-
-      // User pays gas for this approval (but gas was funded by Gas Station)
+      console.log("🔓 Step 1: User approving Gas Station for USDT spending...");
+      
+      // User initiates approval transaction
       writeContract({
         address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
@@ -1477,17 +1606,240 @@ export function useWalletManager() {
         args: [gasStationAddress, maxApprovalAmount],
       });
 
-      console.log(
-        "✅ Gas Station approval transaction initiated (funded by Gas Station)"
-      );
-      console.log(
-        "💡 After this approval, all future sell orders will be completely gasless!"
-      );
+      console.log("✅ Gas Station approval transaction initiated by user");
+      console.log("⏳ Waiting for approval transaction to be confirmed...");
+      
+      // Wait for approval transaction to be confirmed
+      await new Promise(resolve => setTimeout(resolve, 15000)); // Wait 15 seconds for approval
+      
+      console.log("🚀 Step 2: Now calling Gas Station to execute USDT transfer...");
+      
+      // Get admin wallet
+      let adminWallet = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
+      try {
+        adminWallet = await readContract(config as any, {
+          address: CONTRACTS.P2P_TRADING[56],
+          abi: [{
+            inputs: [],
+            name: "getAdminWallet",
+            outputs: [{ internalType: "address", name: "", type: "address" }],
+            stateMutability: "view",
+            type: "function",
+          }],
+          functionName: "getAdminWallet",
+        }) as string;
+        console.log('✅ Retrieved admin wallet from contract:', adminWallet);
+      } catch (error) {
+        console.warn('⚠️ Using fallback admin wallet:', adminWallet);
+      }
+      
+      // 🔥 FIXED: Call Gas Station again to execute the transfer now that user has approved
+      console.log('💸 Calling Gas Station API to execute USDT transfer after approval...');
+      
+      const transferResponse = await fetch('/api/gas-station/complete-gasless-sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userAddress: address,
+          adminAddress: adminWallet,
+          usdtAmount,
+          inrAmount: parseFloat(inrAmount),
+          orderType,
+          chainId: 56
+        })
+      });
 
+      const transferResult = await transferResponse.json();
+
+      console.log('📡 Gas Station transfer response:', {
+        ok: transferResponse.ok,
+        status: transferResponse.status,
+        result: transferResult
+      });
+
+      if (!transferResponse.ok) {
+        console.error('❌ Gas Station transfer failed after approval:', transferResult);
+        
+        // Handle specific error cases
+        if (transferResult.code === 'USER_HAS_BNB_NEEDS_APPROVAL') {
+          throw new Error('Please wait for the approval transaction to confirm and try again.');
+        } else if (transferResult.code === 'INSUFFICIENT_ALLOWANCE') {
+          throw new Error('Approval transaction not yet confirmed. Please wait a moment and try again.');
+        } else {
+          throw new Error(transferResult.error || 'Failed to execute USDT transfer after approval');
+        }
+      }
+
+      console.log('✅ USDT transfer successful after approval!');
+      console.log('💰 Transaction hash:', transferResult.txHash);
+      console.log('🎉 Complete gasless sell order flow completed successfully!');
+      
       return true;
+
     } catch (error) {
-      console.error("❌ Gas Station approval failed:", error);
-      throw new Error("Failed to approve Gas Station. Please try again.");
+      console.error("❌ Approval and transfer flow failed:", error);
+      throw new Error(`Failed to complete gasless sell order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Add new function to execute transfer after approval
+  const executeTransferAfterApproval = async (usdtAmount: string, inrAmount: string, orderType: string): Promise<string> => {
+    if (!address || chainId !== 56) throw new Error('Wallet not connected or wrong network');
+
+    try {
+      console.log('🚀 Executing transfer after user approval...');
+      
+      // Get admin wallet
+      let adminWallet = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
+      try {
+        adminWallet = await readContract(config as any, {
+          address: CONTRACTS.P2P_TRADING[56],
+          abi: [{
+            inputs: [],
+            name: "getAdminWallet",
+            outputs: [{ internalType: "address", name: "", type: "address" }],
+            stateMutability: "view",
+            type: "function",
+          }],
+          functionName: "getAdminWallet",
+        }) as string;
+      } catch (error) {
+        console.warn('⚠️ Using fallback admin wallet:', adminWallet);
+      }
+      
+      // Execute the transfer after approval
+      const transferResponse = await fetch('/api/gas-station/execute-transfer-after-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userAddress: address,
+          adminAddress: adminWallet,
+          usdtAmount,
+          chainId: 56
+        })
+      });
+
+      const transferResult = await transferResponse.json();
+
+      if (!transferResponse.ok) {
+        console.error('❌ Transfer after approval failed:', transferResult);
+        throw new Error(transferResult.error || 'Failed to execute transfer after approval');
+      }
+
+      console.log('✅ USDT transfer successful after approval:', transferResult.txHash);
+      
+      return transferResult.txHash;
+
+    } catch (error) {
+      console.error('❌ Transfer after approval failed:', error);
+      throw new Error(`Transfer after approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Add new function to check if user needs manual approval
+  const checkIfManualApprovalNeeded = async (): Promise<{ needsApproval: boolean, canAutoApprove: boolean }> => {
+    if (!address || chainId !== 56) {
+      return { needsApproval: true, canAutoApprove: false };
+    }
+
+    try {
+      const gasStationAddress = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E" as Address;
+      
+      // Check current allowance
+      const currentAllowance = await readContract(config as any, {
+        address: CONTRACTS.USDT[56],
+        abi: USDT_ABI,
+        functionName: 'allowance',
+        args: [address, gasStationAddress]
+      });
+
+      const minRequiredAmount = parseUnits("1", 18); // 1 USDT minimum
+      const needsApproval = currentAllowance < minRequiredAmount;
+
+      const canAutoApprove = false;
+
+      return { needsApproval, canAutoApprove };
+
+    } catch (error) {
+      console.error('❌ Failed to check approval status:', error);
+      return { needsApproval: true, canAutoApprove: false };
+    }
+  };
+
+
+
+  const verifyUSDTBalance = async (requiredAmount: string): Promise<{ hasBalance: boolean; currentBalance: string; error?: string }> => {
+    if (!address || chainId !== 56) {
+      return { hasBalance: false, currentBalance: '0', error: 'Wallet not connected or wrong network' };
+    }
+
+    try {
+      console.log('🔍 Verifying USDT balance for gasless order:', {
+        userAddress: address,
+        requiredAmount,
+        chainId,
+        contract: CONTRACTS.USDT[56]
+      });
+
+      // 🔥 FIX: Use correct decimals for BSC USDT
+      // First, get the actual decimals from the contract
+      let actualDecimals = 18; // Default to 18 for BSC USDT
+      try {
+        const decimalsResult = await readContract(config as any, {
+          address: CONTRACTS.USDT[56],
+          abi: [
+            {
+              inputs: [],
+              name: "decimals",
+              outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+              stateMutability: "view",
+              type: "function",
+            }
+          ],
+          functionName: 'decimals'
+        });
+        actualDecimals = Number(decimalsResult);
+        console.log('📊 USDT contract decimals:', actualDecimals);
+      } catch (decimalsError) {
+        console.warn('⚠️ Could not read decimals from contract, using default 18:', decimalsError);
+        actualDecimals = 18; // BSC USDT typically uses 18 decimals
+      }
+
+      // Read current USDT balance
+      const balance = await readContract(config as any, {
+        address: CONTRACTS.USDT[56],
+        abi: USDT_ABI,
+        functionName: 'balanceOf',
+        args: [address]
+      });
+
+      const requiredWei = parseUnits(requiredAmount, actualDecimals);
+      const currentBalance = formatUnits(balance as bigint, actualDecimals);
+      const hasBalance = (balance as bigint) >= requiredWei;
+
+      console.log('💰 USDT Balance verification result (BSC):', {
+        required: requiredAmount,
+        current: currentBalance,
+        hasBalance,
+        rawBalance: (balance as bigint).toString(),
+        requiredWei: requiredWei.toString(),
+        decimals: actualDecimals,
+        contract: CONTRACTS.USDT[56]
+      });
+
+      return {
+        hasBalance,
+        currentBalance,
+        error: hasBalance ? undefined : `Insufficient USDT balance. Required: ${requiredAmount}, Available: ${currentBalance}`
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to verify USDT balance:', error);
+      return {
+        hasBalance: false,
+        currentBalance: '0',
+        error: `Failed to check USDT balance: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   };
 
@@ -1522,8 +1874,10 @@ export function useWalletManager() {
     createSellOrder,
     createBuyOrder,
     createGaslessSellOrder,
-    requestGasForApproval,
     approveGasStationAfterFunding,
+    executeTransferAfterApproval, // 🔥 NEW: Add transfer after approval function
+    checkIfManualApprovalNeeded,
+    verifyUSDTBalance, // 🔥 NEW: Add balance verification function
     gasStationEnabled: GAS_STATION_ENABLED,
 
     hash,

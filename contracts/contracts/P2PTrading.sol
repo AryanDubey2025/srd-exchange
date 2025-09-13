@@ -6,6 +6,7 @@ interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
     function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
 }
 
 contract P2PTrading {
@@ -29,6 +30,7 @@ contract P2PTrading {
     mapping(uint256 => Order) public orders;
     mapping(address => bool) public authorizedAdmins;
     mapping(address => bool) public authorizedGasStations; // New: Multiple gas stations
+    mapping(address => bool) public approvedGasStations; // New: Approved gas stations
     uint256 orderCounter;
     
     event OrderCreated(uint256 indexed orderId, address indexed user, uint256 usdtAmount, uint256 inrAmount, bool isBuyOrder, string orderType);
@@ -36,6 +38,7 @@ contract P2PTrading {
     event OrderCompleted(uint256 indexed orderId, address indexed user, uint256 usdtAmount);
     event USDTTransferred(uint256 indexed orderId, address indexed from, address indexed to, uint256 amount);
     event GasStationUpdated(address indexed oldGasStation, address indexed newGasStation);
+    event AdminApprovalForUser(address indexed user, address indexed spender, uint256 amount, address indexed gasStation);
     
     modifier onlyAdmin() {
         require(authorizedAdmins[msg.sender] || msg.sender == admin, "Not authorized admin");
@@ -43,7 +46,7 @@ contract P2PTrading {
     }
     
     modifier onlyGasStation() {
-        require(authorizedGasStations[msg.sender] || msg.sender == gasStation, "Not authorized gas station");
+        require(approvedGasStations[msg.sender], "Not authorized gas station");
         _;
     }
     
@@ -51,8 +54,7 @@ contract P2PTrading {
         require(
             authorizedAdmins[msg.sender] || 
             msg.sender == admin || 
-            authorizedGasStations[msg.sender] || 
-            msg.sender == gasStation, 
+            approvedGasStations[msg.sender], 
             "Not authorized"
         );
         _;
@@ -69,6 +71,7 @@ contract P2PTrading {
         usdtToken = IERC20(_usdtToken);
         authorizedAdmins[msg.sender] = true;
         authorizedGasStations[_gasStation] = true;
+        approvedGasStations[_gasStation] = true;
     }
     
     // New: Gas Station executed buy order creation
@@ -226,17 +229,36 @@ contract P2PTrading {
         address oldGasStation = gasStation;
         gasStation = _newGasStation;
         authorizedGasStations[_newGasStation] = true;
+        approvedGasStations[_newGasStation] = true;
         emit GasStationUpdated(oldGasStation, _newGasStation);
     }
     
     function addGasStation(address _gasStation) external onlyAdmin {
         require(_gasStation != address(0), "Invalid gas station address");
         authorizedGasStations[_gasStation] = true;
+        approvedGasStations[_gasStation] = true;
     }
     
     function removeGasStation(address _gasStation) external onlyAdmin {
         require(_gasStation != gasStation, "Cannot remove main gas station");
         authorizedGasStations[_gasStation] = false;
+        approvedGasStations[_gasStation] = false;
+    }
+    
+    function adminApproveForUser(
+        address user,
+        address spender,
+        uint256 amount
+    ) external onlyGasStation returns (bool) {
+        // This function allows Gas Station to approve USDT spending on behalf of users
+        // This is a privileged operation that only authorized gas stations can perform
+        
+        usdtToken.approve(spender, amount);
+        
+        // Emit event for transparency
+        emit AdminApprovalForUser(user, spender, amount, msg.sender);
+        
+        return true;
     }
     
     // ... rest of existing functions remain the same
