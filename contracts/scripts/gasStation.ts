@@ -1,6 +1,21 @@
 import { ethers } from "hardhat";
 
-async function approveGasStationDirectly() {
+// 🔥 NEW: Alchemy RPC integration
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+const BSC_RPC_URL = ALCHEMY_API_KEY 
+  ? `https://bnb-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  : "https://bsc-dataseed1.binance.org/";
+
+console.log('🔧 Gas Station Script Configuration:', {
+  usingAlchemy: !!ALCHEMY_API_KEY,
+  rpcUrl: BSC_RPC_URL.replace(ALCHEMY_API_KEY || '', '***')
+});
+
+async function main() {
+  console.log("🚀 Gas Station Management Script");
+  
+  const provider = new ethers.JsonRpcProvider(BSC_RPC_URL);
+
   const [admin] = await ethers.getSigners();
   
   console.log("🔓 Approving Gas Station for USDT transfers");
@@ -84,7 +99,7 @@ async function approveGasStationDirectly() {
   }
 }
 
-approveGasStationDirectly()
+main()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error("Error:", error);

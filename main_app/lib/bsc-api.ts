@@ -2,18 +2,37 @@ import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, 
 import { privateKeyToAccount } from 'viem/accounts'
 import { bsc } from 'viem/chains'
 
-// Simple, reliable BSC client
+// 🔥 NEW: Alchemy integration
+const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+
+// Simple, reliable BSC client with Alchemy support
 export class SimpleBSCClient {
   private publicClient: any
   private walletClient: any
   private account: any
 
   constructor(privateKey?: string) {
-    // Use the most reliable BSC RPC
-    const transport = http('https://1rpc.io/bnb', {
-      timeout: 30000,
-      retryCount: 2,
-      retryDelay: 2000
+    // 🔥 UPDATED: Use Alchemy RPC with fallback
+    const rpcUrl = ALCHEMY_API_KEY 
+      ? `https://bnb-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : 'https://1rpc.io/bnb'
+    
+    const transport = http(rpcUrl, {
+      timeout: ALCHEMY_API_KEY ? 30000 : 15000, // Higher timeout for Alchemy
+      retryCount: 3,
+      retryDelay: 2000,
+      fetchOptions: ALCHEMY_API_KEY ? {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      } : undefined
+    })
+
+    console.log('🔧 SimpleBSCClient initialized:', {
+      usingAlchemy: !!ALCHEMY_API_KEY,
+      rpcUrl: rpcUrl.replace(ALCHEMY_API_KEY || '', '***'),
+      hasPrivateKey: !!privateKey
     })
 
     this.publicClient = createPublicClient({

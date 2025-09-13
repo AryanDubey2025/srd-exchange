@@ -8,6 +8,8 @@ const appDescription = process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'P2P USDT Trad
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 const appIcon = process.env.NEXT_PUBLIC_APP_ICON || 'https://your-domain.com/logo.png'
 
+const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+
 if (!projectId) {
   throw new Error(`
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set.
@@ -21,11 +23,20 @@ if (!projectId) {
 }
 
 // Use reliable RPC endpoints
-const BSC_RPC_URLS = [
+const BSC_RPC_URLS = alchemyApiKey 
+? [
+  `https://bnb-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
   'https://1rpc.io/bnb',
   'https://bsc-dataseed.bnbchain.org',
   'https://bsc-dataseed1.defibit.io',
   'https://bsc-dataseed1.ninicoin.io'
+]
+:[
+  'https://1rpc.io/bnb',
+      'https://bsc.nodereal.io',
+      'https://bsc-dataseed.bnbchain.org',
+      'https://bsc-dataseed1.defibit.io',
+      'https://bsc-dataseed1.ninicoin.io'
 ]
 
 export const config = createConfig({

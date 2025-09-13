@@ -6,9 +6,12 @@ import { writeContract, readContract, simulateContract } from 'viem/actions'
 
 const GAS_STATION_PRIVATE_KEY = process.env.GAS_STATION_PRIVATE_KEY as `0x${string}`
 const GAS_STATION_ENABLED = process.env.NEXT_PUBLIC_GAS_STATION_ENABLED === 'true'
+const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
 
 
-const BSC_RPC_URLS = [
+
+const BSC_RPC_URLS = ALCHEMY_API_KEY ? [
+  `https://bnb-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
   'https://bsc.nodereal.io',
   'https://bsc-dataseed.bnbchain.org',
   'https://rpc.ankr.com/bsc', 
@@ -16,16 +19,31 @@ const BSC_RPC_URLS = [
   'https://bsc-dataseed1.ninicoin.io',
   'https://bsc-dataseed2.defibit.io', 
 ]
+: [
+  'https://1rpc.io/bnb',
+  'https://bsc.nodereal.io', 
+  'https://bsc-dataseed.bnbchain.org',
+  'https://rpc.ankr.com/bsc',
+  'https://bsc-dataseed1.defibit.io',
+  'https://bsc-dataseed1.ninicoin.io'
+]
 
 
 const createTransportWithFallback = (rpcIndex = 0) => {
   const currentRpc = BSC_RPC_URLS[rpcIndex] || BSC_RPC_URLS[0]
+  const isAlchemy = currentRpc.includes('alchemy.com')
   
   return http(currentRpc, {
-    batch: false, 
-    timeout: 8000, 
-    retryCount: 1, 
-    retryDelay: 1000 
+    batch: isAlchemy ? true : false, 
+    timeout: isAlchemy ? 30000 : 8000, 
+    retryCount: isAlchemy ? 2 : 1,
+    retryDelay: 1000,
+    fetchOptions: {
+      headers: isAlchemy ? {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      } : undefined
+    }
   })
 }
 
@@ -45,6 +63,7 @@ const createResilientTransport = () => {
   
   return createTransportWithFallback(currentRpcIndex)
 }
+
 
 console.log('🔧 Gas Station Configuration (BSC Mainnet Only):', {
   enabled: GAS_STATION_ENABLED,
@@ -127,7 +146,7 @@ class GasStationService {
   }
 
   private initializeClients() {
- 
+    // 🔥 ENHANCED: Alchemy-optimized BSC configuration
     const optimizedBSC = {
       ...bsc,
       rpcUrls: {
@@ -136,22 +155,27 @@ class GasStationService {
       }
     }
     
+    const transport = createResilientTransport()
+    
     this.walletClient = createWalletClient({
       account: this.account,
       chain: optimizedBSC,
-      transport: createResilientTransport()
+      transport
     })
     
     this.publicClient = createPublicClient({
       chain: optimizedBSC,
-      transport: createResilientTransport()
+      transport
     })
   }
 
 
   private switchToNextRpc() {
     this.currentRpcIndex = (this.currentRpcIndex + 1) % BSC_RPC_URLS.length
-    console.log(`🔄 Switching to RPC ${this.currentRpcIndex + 1}/${BSC_RPC_URLS.length}: ${BSC_RPC_URLS[this.currentRpcIndex]}`)
+    const currentRpc = BSC_RPC_URLS[this.currentRpcIndex]
+    const rpcType = currentRpc.includes('alchemy') ? 'Alchemy' : 'Public'
+    
+    console.log(`🔄 Switching to RPC ${this.currentRpcIndex + 1}/${BSC_RPC_URLS.length}: ${currentRpc} (${rpcType})`)
     this.initializeClients()
   }
 
