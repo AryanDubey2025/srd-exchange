@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import Providers from '@/components/providers'
 import "./globals.css";
-import { ModalProvider } from '@/contexts/ModalContext';
-import GlobalModalProvider from "@/components/GlobalModalProvider";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -26,10 +24,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${montserrat.variable} font-montserrat bg-black antialiased`}>
         <Providers>
-          <ModalProvider >
-            <GlobalModalProvider />
           {children}
-          </ModalProvider >
         </Providers>
       </body>
     </html>

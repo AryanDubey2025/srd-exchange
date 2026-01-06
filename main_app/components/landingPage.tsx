@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useModal } from "@/contexts/ModalContext";
-import { useAccount, useDisconnect } from "@particle-network/connectkit";
+import { useAccount, useDisconnect, useModal } from "@particle-network/connectkit";
 
 export default function LandingPage() {
   const [isMobile, setIsMobile] = useState(false);
-  const { openWalletModal } = useModal();
+  const { setOpen } = useModal();
   const { isConnected } = useAccount();
   const { disconnect } = useDisconnect();
 
@@ -54,11 +53,11 @@ export default function LandingPage() {
       
       // Wait a moment then open wallet modal for fresh connection
       setTimeout(() => {
-        openWalletModal();
+        setOpen(true);
       }, 500);
     } else {
       // User not connected, open modal normally
-      openWalletModal();
+      setOpen(true);
     }
   };
 

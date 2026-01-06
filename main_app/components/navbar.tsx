@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount, useDisconnect } from "@particle-network/connectkit";
-import { useModal } from "@/contexts/ModalContext";
+import { useAccount, useDisconnect, useModal } from "@particle-network/connectkit";
 import { LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -13,7 +12,7 @@ export default function Navbar() {
   const [isMobile, setIsMobile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { isConnected, address } = useAccount();
-  const { openWalletModal } = useModal();
+  const { setOpen } = useModal(); // ConnectKit's modal
   const { disconnect } = useDisconnect();
   const router = useRouter();
 
@@ -41,7 +40,7 @@ export default function Navbar() {
 
   const handleConnectWallet = () => {
     if (!isConnected) {
-      openWalletModal();
+      setOpen(true);
     }
   };
 
@@ -188,7 +187,7 @@ export default function Navbar() {
                 </div>
               ) : (
                 <motion.button
-                  onClick={handleConnectWallet}
+                  onClick={() => setOpen(true)}
                   className="bg-[#622DBF] text-white px-4 py-3 rounded-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-purple-500/25 font-montserrat"
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}

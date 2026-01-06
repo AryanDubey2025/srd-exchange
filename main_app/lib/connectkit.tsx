@@ -63,7 +63,8 @@ const config = createConfig({
   appearance: {
     recommendedWallets: [
       { walletId: 'metaMask', label: 'Recommended' },
-      { walletId: 'coinbaseWallet', label: 'popular' },
+      { walletId: 'binanceWallet', label: 'Popular' },
+      { walletId: 'coinbaseWallet', label: 'Popular' },
     ],
     splitEmailAndPhone: false,
     collapseWalletList: false,
@@ -72,21 +73,35 @@ const config = createConfig({
     language: 'en-US',
     mode: 'light',
     theme: {
-      '--pcm-accent-color': '#7c3aed',
+      '--pcm-accent-color': '#622DBF',
+      '--pcm-body-background': '#ffffff',
+      '--pcm-body-background-secondary': '#f9fafb',
+      '--pcm-body-background-tertiary': '#f3f4f6',
+      '--pcm-overlay-background': 'rgba(0, 0, 0, 0.6)',
+      '--pcm-overlay-backdrop-filter': 'blur(8px)',
+      '--pcm-modal-box-shadow': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
     },
   },
   walletConnectors: [
     evmWalletConnectors({
       metadata: {
         name: 'SRD Exchange',
-        icon: '',
-        description: 'P2P USDT Trading Platform',
+        icon: '/srd_final.svg',
+        description: 'Secure P2P USDT Trading Platform',
         url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       },
       walletConnectProjectId: walletConnectProjectId,
     }),
     authWalletConnectors({
-      authTypes: ['email', 'google', 'apple', 'twitter', 'github'],
+      // Social/email/phone login providers shown in the ConnectKit modal
+      authTypes: [
+        'email',
+        'phone',
+        'google',
+        'facebook',
+        'linkedin',
+        'twitter',
+      ],
       fiatCoin: 'USD',
       promptSettingConfig: {
         promptMasterPasswordSettingWhenLogin: 1,
