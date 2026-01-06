@@ -4,7 +4,75 @@ import { bsc } from 'viem/chains'
 import { writeContract, readContract, simulateContract } from 'viem/actions'
 
 
-const GAS_STATION_PRIVATE_KEY = process.env.GAS_STATION_PRIVATE_KEY as `0x${string}`
+// Normalize and validate private key
+const normalizePrivateKey = (key: string | undefined): `0x${string}` | undefined => {
+  if (!key) return undefined
+  
+  // Remove whitespace and newlines
+  let normalized = key.trim().replace(/\s+/g, '')
+  
+  // Detect common mistakes: URLs, API keys, or other non-private-key values
+  if (normalized.toLowerCase().startsWith('http://') || 
+      normalized.toLowerCase().startsWith('https://') ||
+      normalized.toLowerCase().includes('://')) {
+    throw new Error(
+      `❌ GAS_STATION_PRIVATE_KEY appears to be a URL, not a private key!\n` +
+      `   The value starts with: ${normalized.substring(0, 50)}...\n` +
+      `   Please check your .env file and ensure GAS_STATION_PRIVATE_KEY is set to a valid 64-character hex private key.\n` +
+      `   Example format: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`
+    )
+  }
+  
+  // Check if it looks like an API key or other non-hex value
+  if (normalized.length > 100 || normalized.includes('/') || normalized.includes('?')) {
+    throw new Error(
+      `❌ GAS_STATION_PRIVATE_KEY appears to be incorrectly configured!\n` +
+      `   The value is too long or contains invalid characters.\n` +
+      `   A private key should be exactly 64 hexadecimal characters (optionally prefixed with 0x).\n` +
+      `   Current value starts with: ${normalized.substring(0, 50)}...\n` +
+      `   Please check your .env file and ensure GAS_STATION_PRIVATE_KEY contains only a valid private key.`
+    )
+  }
+  
+  // Add 0x prefix if missing (but only if it doesn't already have it and looks like hex)
+  if (!normalized.startsWith('0x')) {
+    // Check if it's valid hex before adding prefix
+    if (!/^[0-9a-fA-F]+$/.test(normalized)) {
+      throw new Error(
+        `❌ GAS_STATION_PRIVATE_KEY contains invalid characters!\n` +
+        `   Private keys must contain only hexadecimal characters (0-9, a-f, A-F).\n` +
+        `   Current value starts with: ${normalized.substring(0, 50)}...\n` +
+        `   Please check your .env file.`
+      )
+    }
+    normalized = '0x' + normalized
+  }
+  
+  // Validate length: should be 66 characters (0x + 64 hex chars)
+  if (normalized.length !== 66) {
+    throw new Error(
+      `❌ Invalid private key length!\n` +
+      `   Expected: 66 characters (0x + 64 hex characters)\n` +
+      `   Got: ${normalized.length} characters\n` +
+      `   Value starts with: ${normalized.substring(0, 20)}...\n` +
+      `   Please check your .env file and ensure GAS_STATION_PRIVATE_KEY is a valid 64-character hex private key.`
+    )
+  }
+  
+  // Validate hex format
+  if (!/^0x[0-9a-fA-F]{64}$/.test(normalized)) {
+    throw new Error(
+      `❌ Invalid private key format!\n` +
+      `   Private key must be exactly 64 hexadecimal characters after the 0x prefix.\n` +
+      `   Value starts with: ${normalized.substring(0, 20)}...\n` +
+      `   Please check your .env file and ensure GAS_STATION_PRIVATE_KEY contains only valid hex characters.`
+    )
+  }
+  
+  return normalized as `0x${string}`
+}
+
+const GAS_STATION_PRIVATE_KEY = normalizePrivateKey(process.env.GAS_STATION_PRIVATE_KEY)
 const GAS_STATION_ENABLED = process.env.NEXT_PUBLIC_GAS_STATION_ENABLED === 'true'
 const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
 
