@@ -27,6 +27,19 @@ export default function Navbar() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Redirect to terms and conditions on first wallet connection
+  useEffect(() => {
+    if (isConnected && address) {
+      // Check if user has already accepted terms
+      const hasAcceptedTerms = localStorage.getItem(`terms_accepted_${address}`);
+      
+      if (!hasAcceptedTerms) {
+        // Redirect to terms and conditions page
+        router.push('/terms-and-conditions');
+      }
+    }
+  }, [isConnected, address, router]);
+
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
