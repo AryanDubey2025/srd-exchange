@@ -507,7 +507,7 @@ export default function BuySellSection() {
       const databaseOrder = data.order;
       console.log('✅ Sell order created - USDT transferred to admin via gasless transaction');
       
-      await refetchOrders();
+      await Promise.all([refetchOrders(), refetchBalances()]);
       return databaseOrder;
       
     } catch (sellError) {
@@ -806,7 +806,7 @@ export default function BuySellSection() {
         setAmount("");
 
         // Refresh orders after successful creation
-        await refetchOrders();
+        await Promise.all([refetchOrders(), refetchBalances()]);
       } else {
         console.log(
           "💡 Order creation returned null - this is expected for approval flows"

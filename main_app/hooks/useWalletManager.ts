@@ -254,7 +254,7 @@ export function useWalletManager() {
 
   // Fetch BNB balance
   const refetchBnb = async () => {
-    if (!address || !publicClient || !('getBalance' in publicClient)) return;
+    if (!address || !publicClient) return;
     try {
       const balance = await (publicClient as any).getBalance({ address: address as Address });
       setBnbBalance(balance);
@@ -413,7 +413,10 @@ export function useWalletManager() {
   const fetchWalletData = async () => {
     if (!address || !isConnected) return null;
 
-    setIsLoading(true);
+    // Only set loading if we don't have existing data (stale-while-revalidate)
+    if (!walletData) {
+      setIsLoading(true);
+    }
 
     try {
       if (chainId !== bsc.id) {
