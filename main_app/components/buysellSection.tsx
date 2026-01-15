@@ -56,9 +56,18 @@ const USDT_ABI = [
 ] as const;
 
 export default function BuySellSection() {
-  const UPI_LIMIT_USDT = 100;
-  const CDM_MIN_USDT = 100;
-  const CDM_MAX_USDT = 500;
+  // Universal Limits
+  const GLOBAL_MIN_USDT = 0.1;
+
+  // Buy Limits
+  const BUY_UPI_MAX_USDT = 20;
+  const BUY_CDM_MIN_USDT = 100;
+  const BUY_CDM_MAX_USDT = 300;
+
+  // Sell Limits
+  const SELL_UPI_MAX_USDT = 100;
+  const SELL_CDM_MIN_USDT = 100;
+  const SELL_CDM_MAX_USDT = 500;
 
   const { chainId } = useAccount();
   const [activeTab, setActiveTab] = useState("");
@@ -522,35 +531,76 @@ export default function BuySellSection() {
   // Add validation functions
   const validateUSDTLimits = (
     usdtAmount: number,
-    paymentMethod: string
+    paymentMethod: string,
+    orderSide: string
   ): { isValid: boolean; error: string } => {
-    if (paymentMethod === "upi") {
-      if (usdtAmount > UPI_LIMIT_USDT) {
-        return {
-          isValid: false,
-          error: `UPI orders are limited to ${UPI_LIMIT_USDT} USDT maximum. Current: ${usdtAmount.toFixed(
-            4
-          )} USDT`,
-        };
+    // Global minimum check
+    if (usdtAmount < GLOBAL_MIN_USDT) {
+      return {
+        isValid: false,
+        error: `Minimum order amount is ${GLOBAL_MIN_USDT} USDT.`,
+      };
+    }
+
+    if (orderSide === "buy") {
+      if (paymentMethod === "upi") {
+        if (usdtAmount > BUY_UPI_MAX_USDT) {
+          return {
+            isValid: false,
+            error: `Buy UPI orders are limited to ${BUY_UPI_MAX_USDT} USDT maximum. Current: ${usdtAmount.toFixed(
+              4
+            )} USDT`,
+          };
+        }
+      } else if (paymentMethod === "cdm") {
+        if (usdtAmount < BUY_CDM_MIN_USDT) {
+          return {
+            isValid: false,
+            error: `Buy CDM orders require minimum ${BUY_CDM_MIN_USDT} USDT. Current: ${usdtAmount.toFixed(
+              4
+            )} USDT`,
+          };
+        }
+        if (usdtAmount > BUY_CDM_MAX_USDT) {
+          return {
+            isValid: false,
+            error: `Buy CDM orders are limited to ${BUY_CDM_MAX_USDT} USDT maximum. Current: ${usdtAmount.toFixed(
+              4
+            )} USDT`,
+          };
+        }
       }
-    } else if (paymentMethod === "cdm") {
-      if (usdtAmount < CDM_MIN_USDT) {
-        return {
-          isValid: false,
-          error: `CDM orders require minimum ${CDM_MIN_USDT} USDT. Current: ${usdtAmount.toFixed(
-            4
-          )} USDT`,
-        };
-      }
-      if (usdtAmount > CDM_MAX_USDT) {
-        return {
-          isValid: false,
-          error: `CDM orders are limited to ${CDM_MAX_USDT} USDT maximum. Current: ${usdtAmount.toFixed(
-            4
-          )} USDT`,
-        };
+    } else {
+      // Sell Logic
+      if (paymentMethod === "upi") {
+        if (usdtAmount > SELL_UPI_MAX_USDT) {
+          return {
+            isValid: false,
+            error: `Sell UPI orders are limited to ${SELL_UPI_MAX_USDT} USDT maximum. Current: ${usdtAmount.toFixed(
+              4
+            )} USDT`,
+          };
+        }
+      } else if (paymentMethod === "cdm") {
+        if (usdtAmount < SELL_CDM_MIN_USDT) {
+          return {
+            isValid: false,
+            error: `Sell CDM orders require minimum ${SELL_CDM_MIN_USDT} USDT. Current: ${usdtAmount.toFixed(
+              4
+            )} USDT`,
+          };
+        }
+        if (usdtAmount > SELL_CDM_MAX_USDT) {
+          return {
+            isValid: false,
+            error: `Sell CDM orders are limited to ${SELL_CDM_MAX_USDT} USDT maximum. Current: ${usdtAmount.toFixed(
+              4
+            )} USDT`,
+          };
+        }
       }
     }
+
     return { isValid: true, error: "" };
   };
 
@@ -560,14 +610,20 @@ export default function BuySellSection() {
     const currentRate = activeTab === "buy" ? buyPrice : sellPrice;
 
     if (paymentMethod === "upi") {
+      const maxLimit =
+        activeTab === "buy" ? BUY_UPI_MAX_USDT : SELL_UPI_MAX_USDT;
       return {
-        min: 0,
-        max: UPI_LIMIT_USDT * currentRate,
+        min: GLOBAL_MIN_USDT * currentRate,
+        max: maxLimit * currentRate,
       };
     } else if (paymentMethod === "cdm") {
+      const minLimit =
+        activeTab === "buy" ? BUY_CDM_MIN_USDT : SELL_CDM_MIN_USDT;
+      const maxLimit =
+        activeTab === "buy" ? BUY_CDM_MAX_USDT : SELL_CDM_MAX_USDT;
       return {
-        min: CDM_MIN_USDT * currentRate,
-        max: CDM_MAX_USDT * currentRate,
+        min: minLimit * currentRate,
+        max: maxLimit * currentRate,
       };
     }
     return { min: 0, max: Infinity };
@@ -597,7 +653,8 @@ export default function BuySellSection() {
     // Validate USDT limits
     const validation = validateUSDTLimits(
       usdtAmountForValidation,
-      paymentMethod
+      paymentMethod,
+      activeTab
     );
     if (!validation.isValid) {
       alert(validation.error);
@@ -636,7 +693,8 @@ export default function BuySellSection() {
 
     const validation = validateUSDTLimits(
       usdtAmountForValidation,
-      paymentMethod
+      paymentMethod,
+      activeTab
     );
 
     if (!validation.isValid) {
@@ -644,25 +702,28 @@ export default function BuySellSection() {
     }
 
     // Add warning when approaching limits
+    const upiMax = activeTab === "buy" ? BUY_UPI_MAX_USDT : SELL_UPI_MAX_USDT;
+    const cdmMax = activeTab === "buy" ? BUY_CDM_MAX_USDT : SELL_CDM_MAX_USDT;
+
     if (
       paymentMethod === "upi" &&
-      usdtAmountForValidation > UPI_LIMIT_USDT * 0.9
+      usdtAmountForValidation > upiMax * 0.9
     ) {
       return {
         isValid: true,
         error: "",
-        warning: `Approaching UPI limit of ${UPI_LIMIT_USDT} USDT`,
+        warning: `Approaching UPI limit of ${upiMax} USDT`,
       };
     }
 
     if (
       paymentMethod === "cdm" &&
-      usdtAmountForValidation > CDM_MAX_USDT * 0.9
+      usdtAmountForValidation > cdmMax * 0.9
     ) {
       return {
         isValid: true,
         error: "",
-        warning: `Approaching CDM limit of ${CDM_MAX_USDT} USDT`,
+        warning: `Approaching CDM limit of ${cdmMax} USDT`,
       };
     }
 
@@ -1258,9 +1319,9 @@ export default function BuySellSection() {
                   <div className="text-xs text-gray-500 mt-2">
                     {paymentMethod === "upi" && (
                       <>
-                        Limit: Max {UPI_LIMIT_USDT} USDT (₹
+                        Limit: Max {activeTab === "buy" ? BUY_UPI_MAX_USDT : SELL_UPI_MAX_USDT} USDT (₹
                         {(
-                          UPI_LIMIT_USDT *
+                          (activeTab === "buy" ? BUY_UPI_MAX_USDT : SELL_UPI_MAX_USDT) *
                           (activeTab === "buy" ? buyPrice : sellPrice)
                         ).toFixed(0)}
                         )
@@ -1268,14 +1329,14 @@ export default function BuySellSection() {
                     )}
                     {paymentMethod === "cdm" && (
                       <>
-                        Limits: {CDM_MIN_USDT}-{CDM_MAX_USDT} USDT (₹
+                        Limits: {activeTab === "buy" ? BUY_CDM_MIN_USDT : SELL_CDM_MIN_USDT}-{activeTab === "buy" ? BUY_CDM_MAX_USDT : SELL_CDM_MAX_USDT} USDT (₹
                         {(
-                          CDM_MIN_USDT *
+                          (activeTab === "buy" ? BUY_CDM_MIN_USDT : SELL_CDM_MIN_USDT) *
                           (activeTab === "buy" ? buyPrice : sellPrice)
                         ).toFixed(0)}{" "}
                         - ₹
                         {(
-                          CDM_MAX_USDT *
+                          (activeTab === "buy" ? BUY_CDM_MAX_USDT : SELL_CDM_MAX_USDT) *
                           (activeTab === "buy" ? buyPrice : sellPrice)
                         ).toFixed(0)}
                         )
