@@ -855,7 +855,31 @@ export default function BuySellSection() {
               <div className="space-y-3">
                 {/* Wallet Address */}
                 <div className="flex justify-center items-center space-x-2 mb-3">
-                  <ConnectButton />
+                  <span className="text-xs font-mono text-gray-400">
+                    {walletData?.smartWallet?.address
+                      ? `${walletData.smartWallet.address.slice(0, 6)}...${walletData.smartWallet.address.slice(-4)}`
+                      : "..."}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (walletData?.smartWallet?.address) {
+                        navigator.clipboard.writeText(walletData.smartWallet.address);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                    className="p-1 hover:bg-white/10 rounded transition-colors"
+                  >
+                    <Copy className="w-3 h-3 text-gray-400" />
+                  </button>
+                  <a
+                    href={`https://bscscan.com/address/${walletData?.smartWallet?.address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 hover:bg-white/10 rounded transition-colors"
+                  >
+                    <ExternalLink className="w-3 h-3 text-gray-400" />
+                  </a>
                 </div>
                 
 
