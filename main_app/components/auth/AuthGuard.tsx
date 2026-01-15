@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAccount } from 'wagmi'
+import { useAccount } from '@particle-network/connectkit'
 import { motion } from 'framer-motion'
 
 interface AuthGuardProps {
@@ -65,9 +65,9 @@ export default function AuthGuard({
             setIsAuthorized(true)
           }
         } else {
-          console.log("AuthGuard: User not valid, redirecting to:", redirectTo);
+          console.log("AuthGuard: User not found in DB, redirecting to /complete-profile");
           setIsAuthorized(false)
-          router.push(redirectTo)
+          router.push('/complete-profile')
         }
       } catch (error) {
         console.error('AuthGuard: Verification failed:', error)

@@ -7,16 +7,28 @@ import { useWalletManager } from "@/hooks/useWalletManager";
 import { useUserOrders } from "@/hooks/useUserOrders";
 import { useRates } from "@/hooks/useRates";
 import { useModalState } from "@/hooks/useModalState";
-import { useChainId } from "wagmi";
 import BuyCDMModal from "./modal/buy-cdm";
 import BuyUPIModal from "./modal/buy-upi";
 import SellUPIModal from "./modal/sell-upi";
 import SellCDMModal from "./modal/sell-cdm";
 import BankDetailsModal, { BankDetailsData } from "./modal/bank-details-modal";
 import { useBankDetails } from "@/hooks/useBankDetails";
-import { readContract } from "@wagmi/core";
 import { config } from "@/lib/wagmi";
-import { parseUnits, formatUnits } from "viem";
+import { parseUnits, formatUnits, erc20Abi } from "viem";
+
+import {
+  ConnectButton,
+  useAccount,
+  usePublicClient,
+  useParticleAuth,
+  useSmartAccount,
+  useWallets,
+} from "@particle-network/connectkit";
+import { AAWrapProvider, SendTransactionMode } from "@particle-network/aa"; // Only when using EIP1193Provider
+
+// Blockchain Utilities
+import { ethers, type Eip1193Provider } from "ethers";
+import { formatEther, parseEther, verifyMessage } from "viem";
 
 const CONTRACTS = {
   P2P_TRADING: {
@@ -26,6 +38,9 @@ const CONTRACTS = {
     [56]: "0x55d398326f99059fF775485246999027B3197955" as `0x${string}`,
   },
 };
+
+// Admin wallet address for receiving USDT from sell orders
+const ADMIN_WALLET_ADDRESS = "0xA4c9991e1bA3F4aeB0D360186Ba6f8f7c66cC2BF" as `0x${string}`;
 
 const USDT_ABI = [
   {
@@ -45,7 +60,7 @@ export default function BuySellSection() {
   const CDM_MIN_USDT = 100;
   const CDM_MAX_USDT = 500;
 
-  const chainId = useChainId();
+  const { chainId } = useAccount();
   const [activeTab, setActiveTab] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [amount, setAmount] = useState("");
@@ -57,11 +72,131 @@ export default function BuySellSection() {
   const [copied, setCopied] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
-  const [needsGasStationApproval, setNeedsGasStationApproval] = useState(false);
-  const [fundingApproval, setFundingApproval] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { getUserInfo } = useParticleAuth();
+  const publicClient = usePublicClient();
+  const smartAccount = useSmartAccount();
+  const [primaryWallet] = useWallets();
 
   const { saveModalState } = useModalState();
+
+  const [recipientAddress, setRecipientAddress] = useState<string>("0x16071780eaaa5e5ac7a31ca2485026eb24071662");
+  const [isSending, setIsSending] = useState<boolean>(false);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  const [needsGasStationApproval, setNeedsGasStationApproval] = useState<boolean>(false);
+
+  // Initialize ethers provider with gasless transaction mode
+  const customProvider = smartAccount
+    ? new ethers.BrowserProvider(
+        new AAWrapProvider(
+          smartAccount,
+          SendTransactionMode.Gasless
+        ) as Eip1193Provider,
+        "any"
+      )
+    : null;
+
+    const walletClient = primaryWallet?.getWalletClient();
+
+
+  /**
+   * Send USDT using Particle Network's gasless transaction feature
+   * @param recipientAddress - Address to send USDT to
+   * @param usdtAmount - Amount of USDT to send (as string)
+   * @param usdtDecimals - USDT token decimals
+   * @returns Transaction hash
+   */
+  const sendGaslessUSDT = async (
+    recipientAddress: string,
+    usdtAmount: string,
+    usdtDecimals: number
+  ): Promise<string> => {
+    if (!smartAccount) throw new Error('Smart account not initialized');
+    
+    try {
+      console.log(`🚀 Sending ${usdtAmount} USDT to ${recipientAddress} (gasless)`);
+      
+      // Validate recipient address
+      if (!ethers.isAddress(recipientAddress)) {
+        throw new Error('Invalid recipient address format');
+      }
+      
+      // Validate amount
+      const amount = parseFloat(usdtAmount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error('Please enter a valid USDT amount');
+      }
+      
+      // Create contract interface for USDT transfer
+      const iface = new ethers.Interface(erc20Abi);
+      const parsedAmount = parseUnits(usdtAmount, usdtDecimals);
+      
+      // Encode transfer function
+      const data = iface.encodeFunctionData('transfer', [
+        recipientAddress,
+        parsedAmount
+      ]);
+      
+      // Prepare transaction
+      const tx = {
+        to: CONTRACTS.USDT[56],
+        value: '0x0',
+        data: data,
+      };
+      
+      console.log('📋 Getting gasless fee quotes...');
+      
+      // Get fee quotes with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Fee quote timeout. Please try again.')), 30000)
+      );
+      
+      const feeQuotesResult = await Promise.race([
+        smartAccount.getFeeQuotes(tx),
+        timeoutPromise
+      ]) as any;
+      
+      if (!feeQuotesResult) {
+        throw new Error('Failed to get fee quotes');
+      }
+      
+      const gaslessQuote = feeQuotesResult.verifyingPaymasterGasless;
+      
+      if (!gaslessQuote) {
+        throw new Error('Gasless transactions not available right now. Please try again later.');
+      }
+      
+      console.log('✅ Sending gasless user operation...');
+      
+      // Send user operation
+      const hash = await smartAccount.sendUserOperation({
+        userOp: gaslessQuote.userOp,
+        userOpHash: gaslessQuote.userOpHash,
+      });
+      
+      console.log('✅ Transaction hash:', hash);
+      return hash;
+      
+    } catch (error: any) {
+      console.error('❌ Gasless USDT transfer error:', error);
+      
+      let userMessage = 'Transaction failed: ';
+      
+      if (error.message.includes('insufficient')) {
+        userMessage += 'Insufficient USDT balance in your smart wallet.';
+      } else if (error.message.includes('timeout')) {
+        userMessage += 'Request timed out. Please check your connection and try again.';
+      } else if (error.message.includes('rejected')) {
+        userMessage += 'Transaction was rejected or canceled.';
+      } else if (error.message.includes('gasless')) {
+        userMessage += 'Gasless transactions are temporarily unavailable.';
+      } else {
+        userMessage += error.message || 'Unknown error occurred.';
+      }
+      
+      throw new Error(userMessage);
+    }
+  };
 
   // Wallet and orders data
   const {
@@ -71,8 +206,6 @@ export default function BuySellSection() {
     isLoading: walletLoading,
     refetchBalances,
     createSellOrderOnChain,
-    createGaslessSellOrder,
-    approveGasStationAfterFunding,
     approveUSDT,
   } = useWalletManager();
 
@@ -297,168 +430,89 @@ export default function BuySellSection() {
     rate: number
   ) => {
     try {
-      console.log("🚀 Starting gasless sell order creation:", {
+      console.log('🚀 Starting gasless sell order creation:', {
         orderType,
         finalOrderAmount,
         finalUsdtAmount,
         rate,
         userAddress: address,
+        adminWallet: ADMIN_WALLET_ADDRESS
       });
-
-      const gasStationTxHash = await createGaslessSellOrder(
+      
+      // Get USDT decimals (BSC USDT uses 18 decimals)
+      const usdtDecimals = 18;
+      
+      // Send USDT directly to admin using gasless transfer
+      console.log('💸 Initiating gasless USDT transfer to admin wallet...');
+      const txHash = await sendGaslessUSDT(
+        ADMIN_WALLET_ADDRESS,
         finalUsdtAmount,
-        finalOrderAmount,
-        orderType
+        usdtDecimals
       );
-
-      console.log("✅ Gasless sell order response:", {
-        txHash: gasStationTxHash,
-        type: typeof gasStationTxHash,
-        length: gasStationTxHash?.length,
+      
+      console.log('✅ Gasless USDT transfer successful:', txHash);
+      
+      // Wait for transaction confirmation
+      console.log('⏳ Waiting for transaction confirmation...');
+      await new Promise((resolve) => setTimeout(resolve, 8000));
+      
+      console.log('📝 Creating database order after successful USDT transfer...');
+      
+      // Create database order
+      const orderPayload = {
+        walletAddress: address,
+        orderType: orderType,
+        amount: finalOrderAmount,
+        usdtAmount: finalUsdtAmount,
+        buyRate: null,
+        sellRate: rate,
+        paymentMethod: paymentMethod.toUpperCase(),
+        blockchainOrderId: null,
+        status: 'PENDING_ADMIN_PAYMENT',
+        gasStationTxHash: txHash, // Store the gasless transfer hash
+      };
+      
+      const dbResponse = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderPayload),
       });
-
-      if (
-        gasStationTxHash &&
-        typeof gasStationTxHash === "string" &&
-        gasStationTxHash.length > 0
-      ) {
-        const isRealTxHash =
-          (gasStationTxHash.startsWith("0x") &&
-            gasStationTxHash.length === 66) ||
-          (!gasStationTxHash.includes("user_has_sufficient_bnb") &&
-            !gasStationTxHash.includes("approval_needed") &&
-            !gasStationTxHash.includes("method_") &&
-            gasStationTxHash !== "user_has_sufficient_bnb" &&
-            gasStationTxHash !== "user_funded_for_approval");
-
-        console.log("📋 Transaction hash analysis:", {
-          txHash: gasStationTxHash,
-          isRealTxHash,
-          startsWithOx: gasStationTxHash.startsWith("0x"),
-          correctLength: gasStationTxHash.length === 66,
-          containsApprovalKeywords:
-            gasStationTxHash.includes("user_has_sufficient_bnb") ||
-            gasStationTxHash.includes("approval_needed"),
-        });
-
-        if (isRealTxHash) {
-          console.log(
-            "✅ Valid blockchain transaction hash received, creating database order..."
-          );
-
-          // Wait for transaction confirmation
-          await new Promise((resolve) => setTimeout(resolve, 8000));
-
-          console.log(
-            "📝 Creating database order after successful USDT transfer..."
-          );
-
-          const orderPayload = {
-            walletAddress: address,
-            orderType: orderType,
-            amount: finalOrderAmount,
-            usdtAmount: finalUsdtAmount,
-            buyRate: null,
-            sellRate: rate,
-            paymentMethod: paymentMethod.toUpperCase(),
-            blockchainOrderId: null,
-            status: "PENDING_ADMIN_PAYMENT",
-            gasStationTxHash: gasStationTxHash,
-          };
-
-          const dbResponse = await fetch("/api/orders", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(orderPayload),
-          });
-
-          if (!dbResponse.ok) {
-            const errorText = await dbResponse.text();
-            console.error("❌ Database API response error:", errorText);
-            throw new Error(
-              `Database API error: ${dbResponse.status} - ${errorText}`
-            );
-          }
-
-          const data = await dbResponse.json();
-
-          if (!data.success) {
-            console.error("❌ Database order creation failed:", data.error);
-            throw new Error(data.error || "Failed to create database order");
-          }
-
-          const databaseOrder = data.order;
-          console.log(
-            "✅ Sell order created - USDT transferred from user to admin via Gas Station"
-          );
-
-          await refetchOrders();
-          return databaseOrder;
-        } else {
-          // This is an approval identifier - don't create database order yet
-          console.log(
-            "💡 Received approval identifier - database order will be created after transfer"
-          );
-          console.log("📋 Approval identifier details:", {
-            value: gasStationTxHash,
-            isApprovalFlow: true,
-          });
-          return null;
-        }
-      } else {
-        // Invalid or missing transaction hash
-        console.error("❌ Invalid transaction hash received:", {
-          txHash: gasStationTxHash,
-          type: typeof gasStationTxHash,
-          length: gasStationTxHash?.length,
-        });
-        throw new Error("Invalid or missing transaction hash from Gas Station");
+      
+      if (!dbResponse.ok) {
+        const errorText = await dbResponse.text();
+        console.error('❌ Database API response error:', errorText);
+        throw new Error(
+          `Database API error: ${dbResponse.status} - ${errorText}`
+        );
       }
+      
+      const data = await dbResponse.json();
+      
+      if (!data.success) {
+        console.error('❌ Database order creation failed:', data.error);
+        throw new Error(data.error || 'Failed to create database order');
+      }
+      
+      const databaseOrder = data.order;
+      console.log('✅ Sell order created - USDT transferred to admin via gasless transaction');
+      
+      await refetchOrders();
+      return databaseOrder;
+      
     } catch (sellError) {
-      console.error("❌ Gasless sell order creation failed:", sellError);
-      console.error("❌ Error type:", typeof sellError);
-      console.error(
-        "❌ Error stack:",
-        sellError instanceof Error ? sellError.stack : "No stack"
-      );
-
+      console.error('❌ Gasless sell order creation failed:', sellError);
+      
       const errorMessage =
         sellError instanceof Error ? sellError.message : String(sellError);
-
-      if (errorMessage.includes("GAS_STATION_FUNDED_APPROVAL")) {
-        console.log("💰 Gas Station funded user - setting approval state");
-        setNeedsGasStationApproval(true);
-        setFundingApproval(true);
-        alert(
-          "✅ Gas Station funded your wallet with gas!\n\nNow approve Gas Station for USDT spending. After approval, your USDT will be transferred."
-        );
-        return null;
-      } else if (errorMessage.includes("USER_HAS_BNB_NEEDS_APPROVAL")) {
-        console.log("✅ User has BNB - setting approval state only");
-        setNeedsGasStationApproval(true);
-        setFundingApproval(false);
-        alert(
-          "✅ You already have sufficient BNB for gas fees!\n\nPlease approve Gas Station for USDT spending to complete your sell order."
-        );
-        return null;
-      } else if (errorMessage.includes("MANUAL_APPROVAL_REQUIRED")) {
-        setNeedsGasStationApproval(true);
-        console.log("💡 Manual approval required");
-        return null;
-      } else if (errorMessage.includes("Insufficient USDT balance")) {
+      
+      if (errorMessage.includes('Insufficient USDT balance')) {
         throw new Error(
-          "Insufficient USDT balance. Please ensure you have enough USDT for this order."
+          'Insufficient USDT balance. Please ensure you have enough USDT for this order.'
         );
-      } else if (
-        errorMessage.includes("Gas Station is temporarily unavailable")
-      ) {
-        throw new Error(
-          "Gas Station is temporarily unavailable. Please try again later."
-        );
-      } else if (errorMessage.includes("timeout")) {
-        throw new Error("Request timed out. Please try again.");
+      } else if (errorMessage.includes('timeout')) {
+        throw new Error('Request timed out. Please try again.');
       } else {
         throw new Error(`Gasless sell order failed: ${errorMessage}`);
       }
@@ -777,6 +831,15 @@ export default function BuySellSection() {
     };
   }, []);
 
+  function executeTxEthers(event: React.MouseEvent<HTMLButtonElement>): void {
+    throw new Error("Function not implemented.");
+  }
+
+  async function approveGasStationAfterFunding(storedUsdtAmount: string, arg1: string, storedOrderType: string): Promise<boolean> {
+    throw new Error("Function not implemented.");
+    return false; // This line won't be reached, but satisfies TypeScript
+  }
+
   return (
     <>
       <div className="bg-black text-white h-full flex items-center justify-center p-4 sm:p-8 max-w-4xl mx-auto">
@@ -792,27 +855,33 @@ export default function BuySellSection() {
               <div className="space-y-3">
                 {/* Wallet Address */}
                 <div className="flex justify-center items-center space-x-2 mb-3">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#622DBF]/20 flex items-center justify-center">
-                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-[#622DBF]" />
-                  </div>
-                  <span className="text-xs sm:text-sm text-white font-medium">
-                    {formatAddress(address)}
+                  <span className="text-xs font-mono text-gray-400">
+                    {walletData?.smartWallet?.address
+                      ? `${walletData.smartWallet.address.slice(0, 6)}...${walletData.smartWallet.address.slice(-4)}`
+                      : "..."}
                   </span>
                   <button
-                    onClick={handleCopyAddress}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    onClick={() => {
+                      if (walletData?.smartWallet?.address) {
+                        navigator.clipboard.writeText(walletData.smartWallet.address);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                    className="p-1 hover:bg-white/10 rounded transition-colors"
                   >
-                    <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <Copy className="w-3 h-3 text-gray-400" />
                   </button>
                   <a
-                    href={`https://bscscan.com/address/${address}`}
+                    href={`https://bscscan.com/address/${walletData?.smartWallet?.address}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="p-1 hover:bg-white/10 rounded transition-colors"
                   >
-                    <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <ExternalLink className="w-3 h-3 text-gray-400" />
                   </a>
                 </div>
+                
 
                 {copied && (
                   <motion.div
@@ -825,11 +894,11 @@ export default function BuySellSection() {
                   </motion.div>
                 )}
 
-                {/* Balance Display */}
+                {/* Balance Display - Smart Wallet */}
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-1">
                     <span className="text-xs text-white">
-                      Available Balance
+                      Smart Wallet Balance
                     </span>
                     <button
                       onClick={handleRefresh}
@@ -851,23 +920,24 @@ export default function BuySellSection() {
                   ) : (
                     <>
                       <div className="text-lg sm:text-xl font-bold text-white">
-                        {walletData?.balances.usdt
-                          ? `${parseFloat(
-                              walletData.balances.usdt.formatted
-                            ).toFixed(2)} USDT`
+                        {walletData?.smartWallet?.usdtBalance
+                          ? `${parseFloat(walletData.smartWallet.usdtBalance).toFixed(2)} USDT`
                           : "0.00 USDT"}
                       </div>
                       <div className="text-xs text-gray-400 mt-1 flex items-center justify-center space-x-1">
                         <span>≈</span>
                         <span>
                           ₹
-                          {walletData?.balances.usdt
+                          {walletData?.smartWallet?.usdtBalance
                             ? (
-                                parseFloat(walletData.balances.usdt.formatted) *
-                                buyPrice
+                                parseFloat(walletData.smartWallet.usdtBalance) *
+                                sellPrice
                               ).toFixed(2)
                             : "0.00"}
                         </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {smartAccount ? "⚡ Gasless enabled" : ""}
                       </div>
                     </>
                   )}
@@ -1099,6 +1169,7 @@ export default function BuySellSection() {
               </motion.div>
             )}
           </AnimatePresence>
+          
           {/* Amount Input Section */}
           <AnimatePresence>
             {activeTab && paymentMethod && (
@@ -1518,6 +1589,7 @@ export default function BuySellSection() {
                     "Approve & Transfer USDT"
                   )}
                 </motion.button>
+                
 
                 {/* Process Information */}
                 <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-4 mt-4">
@@ -1670,7 +1742,8 @@ async function verifyGasStationApproval(
     });
 
     // Check current allowance
-    const currentAllowance = await readContract(config as any, {
+    if (!usePublicClient || !('readContract' in usePublicClient)) throw new Error("Public client not available");
+    const currentAllowance = await (usePublicClient as any).readContract({
       address: CONTRACTS.USDT[56],
       abi: USDT_ABI,
       functionName: "allowance",

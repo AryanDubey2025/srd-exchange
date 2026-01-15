@@ -1,6 +1,22 @@
+'use client'
+
+import { useAccount } from '@particle-network/connectkit'
+import { useRouter } from 'next/navigation'
 import SimpleNav from '@/components/simple-nav'
 
 export default function TermsAndConditionsPage() {
+  const { address } = useAccount()
+  const router = useRouter()
+
+  const handleAcceptTerms = () => {
+    if (address) {
+      // Store acceptance in localStorage
+      localStorage.setItem(`terms_accepted_${address}`, 'true')
+      // Redirect to dashboard
+      router.push('/dashboard')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-black text-white">
       <SimpleNav />
@@ -239,6 +255,17 @@ export default function TermsAndConditionsPage() {
               ⚠️ Disclaimer: Srd.Exchange is a decentralized P2P platform. We do not provide banking services or hold user funds. Users are solely responsible for their transactions.
             </p>
           </section>
+
+          {/* Accept Button */}
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={handleAcceptTerms}
+              disabled={!address}
+              className="bg-[#622DBF] hover:bg-purple-700 disabled:bg-gray-600 disabled:opacity-50 text-white px-8 py-4 rounded-lg font-bold text-lg transition-all shadow-lg hover:shadow-purple-600/40 disabled:cursor-not-allowed font-montserrat"
+            >
+              {address ? 'Accept Terms & Continue to Dashboard' : 'Connect Wallet to Accept'}
+            </button>
+          </div>
         </div>
 
         {/* Footer */}

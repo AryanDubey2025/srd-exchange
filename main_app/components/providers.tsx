@@ -1,22 +1,32 @@
-'use client'
+'use client';
 
-import { WagmiProvider } from 'wagmi'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { config } from '@/lib/wagmi'
-import FontProvider from './FontProvider'
-import { ReactNode } from 'react'
+// CRITICAL: Import polyfills BEFORE any Particle imports
+import '@/lib/particlePolyfills';
 
-const queryClient = new QueryClient()
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ParticleConnectkit } from '@/lib/connectkit';
+import FontProvider from './FontProvider';
+import { ReactNode, useMemo } from 'react';
+
+// Create QueryClient outside component to prevent re-creation
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config}>
+    <ParticleConnectkit>
       <QueryClientProvider client={queryClient}>
         <FontProvider />
         <div className="font-montserrat">
           {children}
         </div>
       </QueryClientProvider>
-    </WagmiProvider>
-  )
+    </ParticleConnectkit>
+  );
 }

@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react";
 import {
   useAccount,
-  useReadContract,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-  useBalance,
-  useChainId,
   useSwitchChain,
-} from "wagmi";
+  usePublicClient,
+  useWallets,
+  useSmartAccount,
+} from "@particle-network/connectkit";
 import { parseUnits, formatUnits, Address } from "viem";
-import { bsc } from "wagmi/chains"; // Only import BSC mainnet
-import { config } from "@/lib/wagmi";
-import { readContract, simulateContract } from "@wagmi/core";
+import type { Chain as ViemChain } from "viem";
+import { bsc } from "@particle-network/connectkit/chains";
+import { PublicClient } from "viem";
 
 // Add Gas Station import
 const GAS_STATION_ENABLED =
@@ -237,38 +235,90 @@ const createSerializableWalletData = (walletInfo: any) => {
 };
 
 export function useWalletManager() {
-  const { address, isConnected, isConnecting } = useAccount();
-  const chainId = useChainId();
-  const { switchChain } = useSwitchChain();
+  const { address, isConnected, chainId, chain, status } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+  const publicClient = usePublicClient() as PublicClient;
+  const [primaryWallet] = useWallets();
+  const smartAccount = useSmartAccount();
+  const isConnecting = status === "connecting" || status === "reconnecting";
   const [walletData, setWalletData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [bnbBalance, setBnbBalance] = useState<bigint | null>(null);
+  const [usdtBalance, setUsdtBalance] = useState<bigint | null>(null);
+  const [usdtDecimals, setUsdtDecimals] = useState<number | null>(null);
+  const [smartWalletAddress, setSmartWalletAddress] = useState<string | null>(null);
+  const [smartWalletUsdtBalance, setSmartWalletUsdtBalance] = useState<bigint | null>(null);
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
-  // Support BSC mainnet only
-  const { data: bnbBalance, refetch: refetchBnb } = useBalance({
-    address,
-    chainId: chainId,
-  });
+  // Fetch BNB balance
+  const refetchBnb = async () => {
+    if (!address || !publicClient || !('getBalance' in publicClient)) return;
+    try {
+      const balance = await (publicClient as any).getBalance({ address: address as Address });
+      setBnbBalance(balance);
+    } catch (error) {
+      console.error("Failed to fetch BNB balance:", error);
+    }
+  };
 
-  // Get USDT balance - BSC Mainnet only
-  const { data: usdtBalance, refetch: refetchUsdt } = useReadContract({
-    address: CONTRACTS.USDT[56], // Force mainnet
-    abi: USDT_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && chainId === bsc.id, // Only enable for mainnet
-    },
-  });
+  // Fetch USDT balance and decimals for EOA
+  const refetchUsdt = async () => {
+    if (!address || !publicClient || chainId !== bsc.id || !('readContract' in publicClient)) return;
+    try {
+      const balance = await (publicClient as any).readContract({
+        address: CONTRACTS.USDT[56],
+        abi: USDT_ABI,
+        functionName: "balanceOf",
+        args: [address],
+      });
+      setUsdtBalance(balance as bigint);
 
-  // Get USDT decimals for mainnet
-  const { data: usdtDecimals } = useReadContract({
-    address: CONTRACTS.USDT[56], // Force mainnet
-    abi: USDT_ABI,
-    functionName: "decimals",
-    query: {
-      enabled: !!address && chainId === bsc.id, // Only enable for mainnet
-    },
-  });
+      const decimals = await (publicClient as any).readContract({
+        address: CONTRACTS.USDT[56],
+        abi: USDT_ABI,
+        functionName: "decimals",
+      });
+      setUsdtDecimals(Number(decimals));
+    } catch (error) {
+      console.error("Failed to fetch USDT balance:", error);
+    }
+  };
+
+  // Fetch smart wallet USDT balance
+  const refetchSmartWalletUsdt = async () => {
+    if (!smartAccount || !publicClient || chainId !== bsc.id || !('readContract' in publicClient)) return;
+    try {
+      const smartAddress = await smartAccount.getAddress();
+      setSmartWalletAddress(smartAddress);
+
+      const balance = await (publicClient as any).readContract({
+        address: CONTRACTS.USDT[56],
+        abi: USDT_ABI,
+        functionName: "balanceOf",
+        args: [smartAddress as Address],
+      });
+      setSmartWalletUsdtBalance(balance as bigint);
+
+      console.log("🔍 Smart Wallet USDT Balance:", {
+        smartAddress,
+        rawBalance: balance.toString(),
+        formatted: formatUnits(balance, usdtDecimals || 18)
+      });
+    } catch (error) {
+      console.error("Failed to fetch smart wallet USDT balance:", error);
+    }
+  };
+
+  // Fetch balances when address or chainId changes
+  useEffect(() => {
+    if (address && chainId === bsc.id && publicClient) {
+      refetchBnb();
+      refetchUsdt();
+      refetchSmartWalletUsdt();
+    }
+  }, [address, chainId, publicClient, smartAccount]);
 
   // Add debugging for USDT balance
   useEffect(() => {
@@ -276,7 +326,7 @@ export function useWalletManager() {
       console.log("🔍 USDT Balance Debug:", {
         address,
         chainId,
-        contractAddress: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+        contractAddress: CONTRACTS.USDT[56],
         rawBalance: usdtBalance.toString(),
         decimals: usdtDecimals ? Number(usdtDecimals) : "unknown",
         formattedWithActualDecimals: usdtDecimals
@@ -289,18 +339,67 @@ export function useWalletManager() {
     }
   }, [usdtBalance, usdtDecimals, address, chainId]);
 
-  // Transaction management
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
-
   // Force BSC mainnet only
   const isOnBSC = chainId === bsc.id;
+
+  // Helper function to read contracts
+  const readContractHelper = async (params: {
+    address: Address;
+    abi: any;
+    functionName: string;
+    args?: any[];
+  }) => {
+    if (!publicClient) {
+      throw new Error("Public client not available");
+    }
+    // Type assertion for EVM chains - Particle Network's usePublicClient returns viem PublicClient for EVM
+    const evmClient = publicClient as any;
+    if (!evmClient.readContract) {
+      throw new Error("Public client does not support readContract (might be Solana Connection)");
+    }
+    return await evmClient.readContract(params);
+  };
+
+  // Helper function to write contracts
+  const writeContractHelper = async (params: {
+    address: Address;
+    abi: any;
+    functionName: string;
+    args: any[];
+  }) => {
+    if (!primaryWallet || !address) throw new Error("Wallet not connected");
+    if (!publicClient) throw new Error("Public client not available");
+
+    setIsPending(true);
+    try {
+      const walletClient = primaryWallet.getWalletClient();
+      const hash = await walletClient.writeContract({
+        ...params,
+        account: address as Address,
+        chain: chain || bsc,
+      });
+      setTxHash(hash);
+      setIsConfirming(true);
+
+      // Wait for transaction receipt
+      if (publicClient && 'waitForTransactionReceipt' in publicClient) {
+        await (publicClient as any).waitForTransactionReceipt({ hash });
+      }
+      setIsConfirming(false);
+      setIsPending(false);
+      return hash;
+    } catch (error) {
+      setIsPending(false);
+      setIsConfirming(false);
+      throw error;
+    }
+  };
 
   const switchToBSC = async (): Promise<boolean> => {
     try {
       if (chainId !== bsc.id) {
         console.log("🔄 Switching to BSC Mainnet...");
-        await switchChain({ chainId: bsc.id });
+        await switchChainAsync({ chainId: bsc.id });
         return true;
       }
       return true;
@@ -319,7 +418,7 @@ export function useWalletManager() {
     try {
       if (chainId !== bsc.id) {
         console.log("🔄 Must switch to BSC Mainnet...");
-        await switchChain({ chainId: bsc.id });
+        await switchChainAsync({ chainId: bsc.id });
         setIsLoading(false);
         return null;
       }
@@ -344,14 +443,20 @@ export function useWalletManager() {
         }
       }
 
+      // Format smart wallet USDT balance
+      let formattedSmartWalletUsdtBalance = "0";
+      if (smartWalletUsdtBalance && usdtDecimals) {
+        formattedSmartWalletUsdtBalance = formatUnits(smartWalletUsdtBalance, usdtDecimals);
+      }
+
       const walletInfo = {
         address,
         chainId: bsc.id, // Force mainnet
         isOnBSC: true,
         balances: {
           bnb: {
-            raw: bnbBalance?.value || BigInt(0),
-            formatted: bnbBalance ? formatUnits(bnbBalance.value, 18) : "0",
+            raw: bnbBalance || BigInt(0),
+            formatted: bnbBalance ? formatUnits(bnbBalance, 18) : "0",
             symbol: "BNB",
           },
           usdt: {
@@ -360,7 +465,12 @@ export function useWalletManager() {
             symbol: "USDT",
           },
         },
-        canTrade: (bnbBalance?.value || BigInt(0)) > parseUnits("0.001", 18),
+        smartWallet: {
+          address: smartWalletAddress,
+          usdtBalance: formattedSmartWalletUsdtBalance,
+          usdtBalanceRaw: smartWalletUsdtBalance?.toString() || "0",
+        },
+        canTrade: (bnbBalance || BigInt(0)) > parseUnits("0.001", 18),
         lastUpdated: new Date().toISOString(),
       };
 
@@ -388,20 +498,38 @@ export function useWalletManager() {
     inrAmount: string,
     orderType: string
   ) => {
-    if (!address) throw new Error("Wallet not connected");
+    if (!address || !primaryWallet) throw new Error("Wallet not connected");
     if (!isOnBSC) throw new Error("Please switch to a supported BSC network");
 
     const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6;
     const usdtAmountWei = parseUnits(usdtAmount, actualDecimals);
     const inrAmountWei = parseUnits(inrAmount, 2);
 
-    writeContract({
-      address:
-        CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
-      abi: P2P_TRADING_ABI,
-      functionName: "createBuyOrder",
-      args: [usdtAmountWei, inrAmountWei, orderType],
-    });
+    setIsPending(true);
+    try {
+      const walletClient = primaryWallet.getWalletClient();
+      const hash = await walletClient.writeContract({
+        address: CONTRACTS.P2P_TRADING[56],
+        abi: P2P_TRADING_ABI,
+        functionName: "createBuyOrder",
+        args: [usdtAmountWei, inrAmountWei, orderType],
+        account: address as Address,
+        chain: chain || bsc,
+      });
+      setTxHash(hash);
+      setIsConfirming(true);
+
+      // Wait for transaction receipt
+      if (publicClient && 'waitForTransactionReceipt' in publicClient) {
+        await (publicClient as any).waitForTransactionReceipt({ hash });
+        setIsConfirming(false);
+        setIsPending(false);
+      }
+    } catch (error) {
+      setIsPending(false);
+      setIsConfirming(false);
+      throw error;
+    }
   };
 
   const createDirectSellOrderOnChain = async (
@@ -417,8 +545,8 @@ export function useWalletManager() {
       inrAmount,
       orderType,
       contractAddress:
-        CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
-      usdtContract: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+        CONTRACTS.P2P_TRADING[56],
+      usdtContract: CONTRACTS.USDT[56],
     });
 
     if (!usdtAmount || !inrAmount) {
@@ -439,9 +567,8 @@ export function useWalletManager() {
       });
 
       // Get admin wallet address from contract
-      const adminWallet = await readContract(config as any, {
-        address:
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+      const adminWallet = await readContractHelper({
+        address: CONTRACTS.P2P_TRADING[56],
         abi: P2P_TRADING_ABI,
         functionName: "getAdminWallet",
       });
@@ -449,8 +576,8 @@ export function useWalletManager() {
       console.log("🔍 Admin wallet address:", adminWallet);
 
       // Check user's USDT balance
-      const userBalance = await readContract(config as any, {
-        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+      const userBalance = await readContractHelper({
+        address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
         functionName: "balanceOf",
         args: [address],
@@ -471,15 +598,13 @@ export function useWalletManager() {
       }
 
       // Check allowance for admin wallet (not contract)
-      const currentAllowance = await readContract(config as any, {
-        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+      const currentAllowance = await readContractHelper({
+        address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
         functionName: "allowance",
         args: [
           address,
-          CONTRACTS.P2P_TRADING[
-            chainId as keyof typeof CONTRACTS.P2P_TRADING
-          ],
+          CONTRACTS.P2P_TRADING[56],
         ],
       });
 
@@ -497,13 +622,13 @@ export function useWalletManager() {
           formatUnits(approveAmount, actualDecimals)
         );
 
-        writeContract({
-          address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+        await writeContractHelper({
+          address: CONTRACTS.USDT[56],
           abi: USDT_ABI,
           functionName: "approve",
           args: [
             CONTRACTS.P2P_TRADING[
-              chainId as keyof typeof CONTRACTS.P2P_TRADING
+            chainId as keyof typeof CONTRACTS.P2P_TRADING
             ],
             approveAmount,
           ],
@@ -520,9 +645,8 @@ export function useWalletManager() {
 
       // Execute direct sell transfer
       console.log("📝 Executing direct sell transfer to admin...");
-      writeContract({
-        address:
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+      await writeContractHelper({
+        address: CONTRACTS.P2P_TRADING[56],
         abi: P2P_TRADING_ABI,
         functionName: "directSellTransfer",
         args: [usdtAmountWei, inrAmountWei, orderType, adminWallet],
@@ -530,8 +654,7 @@ export function useWalletManager() {
     } catch (error) {
       console.error("❌ Error in createDirectSellOrderOnChain:", error);
       throw new Error(
-        `Failed to create direct sell order: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to create direct sell order: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -542,9 +665,8 @@ export function useWalletManager() {
     if (!address) throw new Error("Wallet not connected");
     if (!isOnBSC) throw new Error("Please switch to a supported BSC network");
 
-    writeContract({
-      address:
-        CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+    await writeContractHelper({
+      address: CONTRACTS.P2P_TRADING[56],
       abi: P2P_TRADING_ABI,
       functionName: "verifyPayment",
       args: [BigInt(orderId)],
@@ -565,9 +687,9 @@ export function useWalletManager() {
 
     try {
       // First, get the order details to know how much USDT we need
-      const orderDetails = await readContract(config as any, {
+      const orderDetails = await readContractHelper({
         address:
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[56],
         abi: P2P_TRADING_ABI,
         functionName: "getOrder",
         args: [BigInt(orderId)],
@@ -581,8 +703,8 @@ export function useWalletManager() {
       );
 
       // Check admin's USDT balance
-      const adminBalance = await readContract(config as any, {
-        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+      const adminBalance = await readContractHelper({
+        address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
         functionName: "balanceOf",
         args: [address],
@@ -603,13 +725,13 @@ export function useWalletManager() {
       }
 
       // Check current allowance
-      const currentAllowance = await readContract(config as any, {
-        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+      const currentAllowance = await readContractHelper({
+        address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
         functionName: "allowance",
         args: [
           address,
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[56],
         ],
       });
 
@@ -625,13 +747,13 @@ export function useWalletManager() {
         // Approve double the amount for future transactions
         const approveAmount = usdtAmountNeeded * BigInt(2);
 
-        writeContract({
-          address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+        await writeContractHelper({
+          address: CONTRACTS.USDT[56],
           abi: USDT_ABI,
           functionName: "approve",
           args: [
             CONTRACTS.P2P_TRADING[
-              chainId as keyof typeof CONTRACTS.P2P_TRADING
+            chainId as keyof typeof CONTRACTS.P2P_TRADING
             ],
             approveAmount,
           ],
@@ -645,9 +767,9 @@ export function useWalletManager() {
       // Now complete the buy order
       console.log("📝 Completing buy order on contract...");
 
-      writeContract({
+      await writeContractHelper({
         address:
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[56],
         abi: P2P_TRADING_ABI,
         functionName: "completeBuyOrder",
         args: [BigInt(orderId)],
@@ -660,8 +782,7 @@ export function useWalletManager() {
         throw error; // Re-throw approval needed error
       }
       throw new Error(
-        `Failed to complete buy order: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to complete buy order: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -671,9 +792,9 @@ export function useWalletManager() {
     if (!address) throw new Error("Wallet not connected");
     if (!isOnBSC) throw new Error("Please switch to a supported BSC network");
 
-    writeContract({
+    await writeContractHelper({
       address:
-        CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+        CONTRACTS.P2P_TRADING[56],
       abi: P2P_TRADING_ABI,
       functionName: "completeSellOrder",
       args: [BigInt(orderId)],
@@ -684,9 +805,9 @@ export function useWalletManager() {
     if (!address) throw new Error("Wallet not connected");
     if (!isOnBSC) throw new Error("Please switch to a supported BSC network");
 
-    writeContract({
+    await writeContractHelper({
       address:
-        CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+        CONTRACTS.P2P_TRADING[56],
       abi: P2P_TRADING_ABI,
       functionName: "confirmOrderReceived",
       args: [BigInt(orderId)],
@@ -707,9 +828,9 @@ export function useWalletManager() {
     }
 
     try {
-      writeContract({
+      await writeContractHelper({
         address:
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[56],
         abi: P2P_TRADING_ABI,
         functionName: "approveOrder",
         args: [BigInt(orderId)],
@@ -717,8 +838,7 @@ export function useWalletManager() {
     } catch (error) {
       console.error("❌ Error in approveOrderOnChain:", error);
       throw new Error(
-        `Failed to approve order: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to approve order: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -777,7 +897,7 @@ export function useWalletManager() {
         const usdtContract = CONTRACTS.USDT[56];
 
         // Pre-flight checks
-        const adminBalance = await readContract(config as any, {
+        const adminBalance = await readContractHelper({
           address: usdtContract,
           abi: USDT_ABI,
           functionName: "balanceOf",
@@ -794,7 +914,7 @@ export function useWalletManager() {
         }
 
         // Execute direct transfer
-        writeContract({
+        await writeContractHelper({
           address: usdtContract,
           abi: USDT_ABI,
           functionName: "transfer",
@@ -808,8 +928,7 @@ export function useWalletManager() {
     } catch (error) {
       console.error("❌ USDT transfer error:", error);
       throw new Error(
-        `USDT transfer failed: ${
-          error instanceof Error ? error.message : String(error)
+        `USDT transfer failed: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -862,7 +981,7 @@ export function useWalletManager() {
         const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6;
         const usdtAmountWei = parseUnits(usdtAmount, actualDecimals);
         const contractAddress =
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING];
+          CONTRACTS.P2P_TRADING[56];
 
         if (
           !contractAddress ||
@@ -873,7 +992,7 @@ export function useWalletManager() {
           );
         }
 
-        writeContract({
+        await writeContractHelper({
           address: contractAddress,
           abi: P2P_TRADING_ABI,
           functionName: "directSellTransfer",
@@ -935,9 +1054,9 @@ export function useWalletManager() {
         const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6;
         const usdtAmountWei = parseUnits(usdtAmount, actualDecimals);
         const contractAddress =
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING];
+          CONTRACTS.P2P_TRADING[56];
 
-        writeContract({
+        await writeContractHelper({
           address: contractAddress,
           abi: P2P_TRADING_ABI,
           functionName: "createBuyOrder",
@@ -974,7 +1093,7 @@ export function useWalletManager() {
 
   const refetchBalances = async () => {
     if (chainId === bsc.id) {
-      await Promise.all([refetchBnb(), refetchUsdt()]);
+      await Promise.all([refetchBnb(), refetchUsdt(), refetchSmartWalletUsdt()]);
       await fetchWalletData();
     }
   };
@@ -994,7 +1113,7 @@ export function useWalletManager() {
       orderType,
       userAddress: address,
       contractAddress:
-        CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+        CONTRACTS.P2P_TRADING[56],
     });
 
     if (!usdtAmount || !inrAmount) {
@@ -1015,10 +1134,10 @@ export function useWalletManager() {
 
       let adminWallet: string;
       try {
-        adminWallet = (await readContract(config as any, {
+        adminWallet = (await readContractHelper({
           address:
             CONTRACTS.P2P_TRADING[
-              chainId as keyof typeof CONTRACTS.P2P_TRADING
+            chainId as keyof typeof CONTRACTS.P2P_TRADING
             ],
           abi: P2P_TRADING_ABI,
           functionName: "getAdminWallet",
@@ -1030,10 +1149,10 @@ export function useWalletManager() {
           error
         );
         try {
-          adminWallet = (await readContract(config as any, {
+          adminWallet = (await readContractHelper({
             address:
               CONTRACTS.P2P_TRADING[
-                chainId as keyof typeof CONTRACTS.P2P_TRADING
+              chainId as keyof typeof CONTRACTS.P2P_TRADING
               ],
             abi: P2P_TRADING_ABI,
             functionName: "admin",
@@ -1055,8 +1174,8 @@ export function useWalletManager() {
       }
 
       // Check user's USDT balance
-      const userBalance = await readContract(config as any, {
-        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+      const userBalance = await readContractHelper({
+        address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
         functionName: "balanceOf",
         args: [address],
@@ -1077,13 +1196,13 @@ export function useWalletManager() {
       }
 
       // Check allowance for P2P contract
-      const currentAllowance = await readContract(config as any, {
-        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+      const currentAllowance = await readContractHelper({
+        address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
         functionName: "allowance",
         args: [
           address,
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[56],
         ],
       });
 
@@ -1101,13 +1220,13 @@ export function useWalletManager() {
           formatUnits(approveAmount, actualDecimals)
         );
 
-        writeContract({
-          address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+        await writeContractHelper({
+          address: CONTRACTS.USDT[56],
           abi: USDT_ABI,
           functionName: "approve",
           args: [
             CONTRACTS.P2P_TRADING[
-              chainId as keyof typeof CONTRACTS.P2P_TRADING
+            chainId as keyof typeof CONTRACTS.P2P_TRADING
             ],
             approveAmount,
           ],
@@ -1119,9 +1238,9 @@ export function useWalletManager() {
 
       // Execute direct sell transfer to admin
       console.log("📝 Executing direct sell transfer to admin...");
-      writeContract({
+      await writeContractHelper({
         address:
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[56],
         abi: P2P_TRADING_ABI,
         functionName: "directSellTransfer",
         args: [
@@ -1139,8 +1258,7 @@ export function useWalletManager() {
         throw error; // Re-throw the approval needed error
       }
       throw new Error(
-        `Failed to create sell order: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to create sell order: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -1171,9 +1289,9 @@ export function useWalletManager() {
 
       // Execute admin-paid transfer
       console.log("📝 Executing admin-paid sell transfer...");
-      writeContract({
+      await writeContractHelper({
         address:
-          CONTRACTS.P2P_TRADING[chainId as keyof typeof CONTRACTS.P2P_TRADING],
+          CONTRACTS.P2P_TRADING[56],
         abi: P2P_TRADING_ABI,
         functionName: "adminExecuteSellTransfer",
         args: [
@@ -1186,8 +1304,7 @@ export function useWalletManager() {
     } catch (error) {
       console.error("❌ Error in adminExecuteSellTransfer:", error);
       throw new Error(
-        `Failed to execute admin sell transfer: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to execute admin sell transfer: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -1208,8 +1325,8 @@ export function useWalletManager() {
       const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 6;
       const amountWei = parseUnits(amount, actualDecimals);
 
-      writeContract({
-        address: CONTRACTS.USDT[chainId as keyof typeof CONTRACTS.USDT],
+      await writeContractHelper({
+        address: CONTRACTS.USDT[56],
         abi: USDT_ABI,
         functionName: "approve",
         args: [spender, amountWei],
@@ -1219,8 +1336,7 @@ export function useWalletManager() {
     } catch (error) {
       console.error("❌ USDT approval error:", error);
       throw new Error(
-        `USDT approval failed: ${
-          error instanceof Error ? error.message : String(error)
+        `USDT approval failed: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -1228,620 +1344,15 @@ export function useWalletManager() {
 
   // Add this function to handle Gas Station approvals:
 
-  const approveGasStationForSell = async (
-    usdtAmount: string
-  ): Promise<boolean> => {
-    if (!address || chainId !== 56) return false;
 
-    try {
-      const GAS_STATION_ADDRESS = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
-      const actualDecimals = usdtDecimals ? Number(usdtDecimals) : 18;
-      const usdtAmountWei = parseUnits(usdtAmount, actualDecimals);
 
-      // Check current allowance for Gas Station
-      const currentAllowance = await readContract(config as any, {
-        address: CONTRACTS.USDT[56],
-        abi: USDT_ABI,
-        functionName: "allowance",
-        args: [address, GAS_STATION_ADDRESS],
-      });
-
-      console.log("🔍 Gas Station allowance check:", {
-        required: formatUnits(usdtAmountWei, actualDecimals),
-        current: formatUnits(currentAllowance, actualDecimals),
-        sufficient: currentAllowance >= usdtAmountWei,
-      });
-
-      if (currentAllowance >= usdtAmountWei) {
-        return true; // Already approved
-      }
-
-      // Need approval - approve 10x for future transactions
-      const approveAmount = usdtAmountWei * BigInt(10);
-
-      console.log("🔓 Approving Gas Station for USDT:", {
-        spender: GAS_STATION_ADDRESS,
-        amount: formatUnits(approveAmount, actualDecimals),
-      });
-
-      await approveUSDT(
-        GAS_STATION_ADDRESS as `0x${string}`,
-        formatUnits(approveAmount, actualDecimals)
-      );
-
-      // Wait for approval transaction
-      await new Promise((resolve) => setTimeout(resolve, 8000));
-
-      // Verify approval
-      const newAllowance = await readContract(config as any, {
-        address: CONTRACTS.USDT[56],
-        abi: USDT_ABI,
-        functionName: "allowance",
-        args: [address, GAS_STATION_ADDRESS],
-      });
-
-      const isApproved = newAllowance >= usdtAmountWei;
-      console.log("✅ Gas Station approval result:", {
-        approved: isApproved,
-        newAllowance: formatUnits(newAllowance, actualDecimals),
-      });
-
-      return isApproved;
-    } catch (error) {
-      console.error("❌ Gas Station approval failed:", error);
-      return false;
-    }
-  };
-
-  const createGaslessSellOrder = async (
-    usdtAmount: string,
-    inrAmount: string,
-    orderType: string
-  ): Promise<string> => {
-    if (!address) throw new Error('Wallet not connected');
-    if (chainId !== 56) throw new Error('Please switch to BSC Mainnet');
-
-    try {
-      console.log('🚀 Creating completely gasless sell order (Gas Station handles ALL fees including approval):', {
-        usdtAmount,
-        inrAmount,
-        orderType,
-        userAddress: address
-      });
-
-      // Pre-flight balance check
-      const balanceCheck = await verifyUSDTBalance(usdtAmount);
-      if (!balanceCheck.hasBalance) {
-        console.error('❌ Pre-flight balance check failed:', balanceCheck.error);
-        throw new Error(balanceCheck.error || 'Insufficient USDT balance');
-      }
-
-      console.log('✅ Pre-flight balance check passed:', {
-        required: usdtAmount,
-        available: balanceCheck.currentBalance
-      });
-
-      // Get admin wallet
-      let adminWallet = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E"; 
-      try {
-        adminWallet = await readContract(config as any, {
-          address: CONTRACTS.P2P_TRADING[56],
-          abi: [{
-            inputs: [],
-            name: "getAdminWallet",
-            outputs: [{ internalType: "address", name: "", type: "address" }],
-            stateMutability: "view",
-            type: "function",
-          }],
-          functionName: "getAdminWallet",
-        }) as string;
-        console.log('✅ Got admin wallet from contract:', adminWallet);
-      } catch (error) {
-        console.warn('⚠️ Using fallback admin wallet:', adminWallet);
-      }
-
-      console.log('🚀 Calling Gas Station for COMPLETELY gasless sell order...');
-
-      // Call the complete gasless API with timeout protection
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-      let gasStationResponse: Response;
-      let result: any;
-
-      try {
-        gasStationResponse = await fetch('/api/gas-station/complete-gasless-sell', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userAddress: address,
-            adminAddress: adminWallet,
-            usdtAmount,
-            inrAmount: parseFloat(inrAmount),
-            orderType,
-            chainId: 56
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        console.log('📡 Gas Station API response:', {
-          ok: gasStationResponse.ok,
-          status: gasStationResponse.status,
-          statusText: gasStationResponse.statusText
-        });
-
-        // Parse response
-        try {
-          result = await gasStationResponse.json();
-          console.log('📋 Gas Station API result (detailed):', {
-            result,
-            hasSuccess: 'success' in result,
-            hasTxHash: 'txHash' in result,
-            hasCode: 'code' in result,
-            hasNeedsApproval: 'needsApproval' in result,
-            hasMethod: 'method' in result,
-            successValue: result.success,
-            txHashValue: result.txHash,
-            codeValue: result.code,
-            needsApprovalValue: result.needsApproval,
-            methodValue: result.method,
-            allKeys: Object.keys(result || {})
-          });
-        } catch (parseError) {
-          console.error('❌ Failed to parse Gas Station response:', parseError);
-          throw new Error('Invalid response from Gas Station API');
-        }
-
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('Transaction timed out. Please try again.');
-        }
-        
-        console.error('❌ Gas Station API fetch error:', fetchError);
-        throw new Error('Failed to communicate with Gas Station API');
-      }
-
-      // 🔥 FIX: Enhanced result validation with comprehensive logging
-      if (!result || typeof result !== 'object') {
-        console.error('❌ Invalid result structure from Gas Station:', {
-          result,
-          type: typeof result,
-          isNull: result === null,
-          isUndefined: result === undefined
-        });
-        throw new Error('Invalid response from Gas Station service - no data received');
-      }
-
-      // 🔥 FIX: Handle HTTP error responses first (status >= 400)
-      if (!gasStationResponse.ok) {
-        console.error('❌ Gas Station API HTTP error:', {
-          status: gasStationResponse.status,
-          statusText: gasStationResponse.statusText,
-          result
-        });
-        
-        const errorCode = result.code || 'UNKNOWN_ERROR';
-        const errorMessage = result.error || `Gas Station API error: ${gasStationResponse.status}`;
-        
-        // Handle specific error codes from HTTP error responses
-        if (errorCode === 'USER_FUNDED_FOR_APPROVAL') {
-          console.log('💰 Gas Station funded user wallet for approval (via HTTP error)');
-          throw new Error('GAS_STATION_FUNDED_APPROVAL');
-        } else if (errorCode === 'USER_HAS_BNB_NEEDS_APPROVAL') {
-          console.log('✅ User already has sufficient BNB, needs approval only (via HTTP error)');
-          throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
-        } else if (errorCode === 'APPROVAL_REQUIRED') {
-          throw new Error('MANUAL_APPROVAL_REQUIRED');
-        } else if (errorCode === 'INSUFFICIENT_BALANCE') {
-          throw new Error('Insufficient USDT balance for this transaction.');
-        } else if (errorCode === 'GAS_STATION_NOT_READY') {
-          throw new Error('Gas Station is temporarily unavailable. Please try again in a few minutes.');
-        } else if (errorCode === 'GAS_STATION_LOW_BALANCE' || errorCode === 'GAS_STATION_INSUFFICIENT_FUNDS' || errorCode === 'GAS_STATION_CANNOT_FUND_USER') {
-          throw new Error('Gas Station is temporarily unavailable due to low funds. Please try again later.');
-        } else if (errorCode === 'NETWORK_TIMEOUT') {
-          throw new Error('Network timeout. Please try again.');
-        } else {
-          throw new Error(errorMessage);
-        }
-      }
-
-      // 🔥 FIX: Handle successful HTTP responses (status 200-299)
-      console.log('✅ HTTP response successful, analyzing result structure...');
-
-      // Check for explicit success responses
-      if (result.success === true) {
-        console.log('🎉 Explicit success response detected');
-        
-        // For successful responses, txHash must be present and valid
-        if (!result.txHash) {
-          console.error('❌ Successful response missing txHash:', result);
-          throw new Error('Transaction completed but no transaction hash received');
-        }
-        
-        if (typeof result.txHash !== 'string') {
-          console.error('❌ Invalid txHash type:', typeof result.txHash, result.txHash);
-          throw new Error('Invalid transaction hash format received');
-        }
-        
-        if (result.txHash.length === 0) {
-          console.error('❌ Empty txHash received:', result);
-          throw new Error('Empty transaction hash received');
-        }
-        
-        console.log('✅ USDT transfer completed successfully via Gas Station:', result.txHash);
-        console.log('💰 User USDT transferred to admin account - Gas Station paid all fees!');
-        
-        return result.txHash;
-      }
-
-      // 🔥 FIX: Handle approval flow responses (success: false but valid state)
-      if (result.success === false && result.needsApproval === true) {
-        console.log('💡 Approval flow response detected:', {
-          code: result.code,
-          txHash: result.txHash,
-          fundingTxHash: result.fundingTxHash,
-          userHasBnb: result.userHasBnb
-        });
-        
-        if (result.code === 'USER_FUNDED_FOR_APPROVAL') {
-          console.log('💰 Gas Station funded user wallet for approval');
-          throw new Error('GAS_STATION_FUNDED_APPROVAL');
-        } else if (result.code === 'USER_HAS_BNB_NEEDS_APPROVAL') {
-          console.log('✅ User already has sufficient BNB, needs approval only');
-          throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
-        } else if (result.code === 'APPROVAL_REQUIRED') {
-          throw new Error('MANUAL_APPROVAL_REQUIRED');
-        } else {
-          // Generic approval required
-          console.log('💡 Generic approval required response');
-          throw new Error('USER_APPROVAL_REQUIRED');
-        }
-      }
-
-      // 🔥 FIX: Handle other response patterns
-      if (result.success === false && !result.needsApproval) {
-        console.error('❌ Explicit failure response:', {
-          success: result.success,
-          error: result.error,
-          code: result.code,
-          message: result.message
-        });
-        
-        const errorMessage = result.error || result.message || 'Gas Station operation failed';
-        throw new Error(errorMessage);
-      }
-
-      // 🔥 FIX: Handle responses without explicit success field
-      if (typeof result.success === 'undefined') {
-        console.log('🔍 Response without explicit success field, checking for transaction hash...');
-        
-        if (result.txHash && typeof result.txHash === 'string' && result.txHash.length > 0) {
-          console.log('✅ Found transaction hash in response without success field:', result.txHash);
-          return result.txHash;
-        }
-        
-        if (result.method || result.code) {
-          console.log('🔍 Response contains method/code but no txHash:', {
-            method: result.method,
-            code: result.code,
-            txHash: result.txHash
-          });
-          
-          // Handle method-based responses
-          if (result.method === 'user_has_bnb_needs_approval' || result.code === 'USER_HAS_BNB_NEEDS_APPROVAL') {
-            throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
-          } else if (result.method === 'user_funded_for_approval' || result.code === 'USER_FUNDED_FOR_APPROVAL') {
-            throw new Error('GAS_STATION_FUNDED_APPROVAL');
-          } else if (result.method === 'gasless_transfer_completed') {
-            if (result.txHash) {
-              return result.txHash;
-            } else {
-              throw new Error('Transfer completed but missing transaction hash');
-            }
-          }
-        }
-      }
-
-      // 🔥 FIX: Final fallback for unexpected response structures
-      console.error('❌ Unexpected response structure from Gas Station:', {
-        success: result.success,
-        hasTxHash: 'txHash' in result,
-        hasNeedsApproval: 'needsApproval' in result,
-        hasMethod: 'method' in result,
-        hasCode: 'code' in result,
-        hasError: 'error' in result,
-        hasMessage: 'message' in result,
-        successType: typeof result.success,
-        txHashType: typeof result.txHash,
-        allKeys: Object.keys(result),
-        result
-      });
-
-      // Try to extract meaningful error message from the response
-      const meaningfulError = result.error || result.message || 'Unknown response format from Gas Station';
-      throw new Error(`Unexpected response format: ${meaningfulError}`);
-
-    } catch (error) {
-      console.error('❌ Completely gasless sell order creation failed:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Pass through the specific error messages
-      if (errorMessage.includes('GAS_STATION_FUNDED_APPROVAL')) {
-        throw new Error('GAS_STATION_FUNDED_APPROVAL');
-      } else if (errorMessage.includes('USER_HAS_BNB_NEEDS_APPROVAL')) {
-        throw new Error('USER_HAS_BNB_NEEDS_APPROVAL');
-      } else if (errorMessage.includes('MANUAL_APPROVAL_REQUIRED') || errorMessage.includes('USER_APPROVAL_REQUIRED')) {
-        throw new Error('MANUAL_APPROVAL_REQUIRED');
-      } else if (errorMessage.includes('Insufficient USDT balance')) {
-        throw new Error('Insufficient USDT balance for this transaction.');
-      } else if (errorMessage.includes('Gas Station is temporarily unavailable')) {
-        throw new Error('Gas Station is temporarily unavailable. Please try again later.');
-      } else if (errorMessage.includes('timeout')) {
-        throw new Error('Request timed out. Please try again.');
-      } else {
-        throw new Error(errorMessage);
-      }
-    }
-  };
-
-  const approveGasStationAfterFunding = async (usdtAmount: string, inrAmount: string, orderType: string): Promise<boolean> => {
-    if (!address || chainId !== 56) return false;
-
-    try {
-      const gasStationAddress = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E" as Address;
-      const maxApprovalAmount = parseUnits("1000000000", 18); 
-
-      console.log("🔓 Step 1: User approving Gas Station for USDT spending...");
-      
-      // User initiates approval transaction
-      writeContract({
-        address: CONTRACTS.USDT[56],
-        abi: USDT_ABI,
-        functionName: "approve",
-        args: [gasStationAddress, maxApprovalAmount],
-      });
-
-      console.log("✅ Gas Station approval transaction initiated by user");
-      console.log("⏳ Waiting for approval transaction to be confirmed...");
-      
-      // Wait for approval transaction to be confirmed
-      await new Promise(resolve => setTimeout(resolve, 15000)); // Wait 15 seconds for approval
-      
-      console.log("🚀 Step 2: Now calling Gas Station to execute USDT transfer...");
-      
-      // Get admin wallet
-      let adminWallet = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
-      try {
-        adminWallet = await readContract(config as any, {
-          address: CONTRACTS.P2P_TRADING[56],
-          abi: [{
-            inputs: [],
-            name: "getAdminWallet",
-            outputs: [{ internalType: "address", name: "", type: "address" }],
-            stateMutability: "view",
-            type: "function",
-          }],
-          functionName: "getAdminWallet",
-        }) as string;
-        console.log('✅ Retrieved admin wallet from contract:', adminWallet);
-      } catch (error) {
-        console.warn('⚠️ Using fallback admin wallet:', adminWallet);
-      }
-      
-      // 🔥 FIXED: Call Gas Station again to execute the transfer now that user has approved
-      console.log('💸 Calling Gas Station API to execute USDT transfer after approval...');
-      
-      const transferResponse = await fetch('/api/gas-station/complete-gasless-sell', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userAddress: address,
-          adminAddress: adminWallet,
-          usdtAmount,
-          inrAmount: parseFloat(inrAmount),
-          orderType,
-          chainId: 56
-        })
-      });
-
-      const transferResult = await transferResponse.json();
-
-      console.log('📡 Gas Station transfer response:', {
-        ok: transferResponse.ok,
-        status: transferResponse.status,
-        result: transferResult
-      });
-
-      if (!transferResponse.ok) {
-        console.error('❌ Gas Station transfer failed after approval:', transferResult);
-        
-        // Handle specific error cases
-        if (transferResult.code === 'USER_HAS_BNB_NEEDS_APPROVAL') {
-          throw new Error('Please wait for the approval transaction to confirm and try again.');
-        } else if (transferResult.code === 'INSUFFICIENT_ALLOWANCE') {
-          throw new Error('Approval transaction not yet confirmed. Please wait a moment and try again.');
-        } else {
-          throw new Error(transferResult.error || 'Failed to execute USDT transfer after approval');
-        }
-      }
-
-      console.log('✅ USDT transfer successful after approval!');
-      console.log('💰 Transaction hash:', transferResult.txHash);
-      console.log('🎉 Complete gasless sell order flow completed successfully!');
-      
-      return true;
-
-    } catch (error) {
-      console.error("❌ Approval and transfer flow failed:", error);
-      throw new Error(`Failed to complete gasless sell order: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
 
   // Add new function to execute transfer after approval
-  const executeTransferAfterApproval = async (usdtAmount: string, inrAmount: string, orderType: string): Promise<string> => {
-    if (!address || chainId !== 56) throw new Error('Wallet not connected or wrong network');
-
-    try {
-      console.log('🚀 Executing transfer after user approval...');
-      
-      // Get admin wallet
-      let adminWallet = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E";
-      try {
-        adminWallet = await readContract(config as any, {
-          address: CONTRACTS.P2P_TRADING[56],
-          abi: [{
-            inputs: [],
-            name: "getAdminWallet",
-            outputs: [{ internalType: "address", name: "", type: "address" }],
-            stateMutability: "view",
-            type: "function",
-          }],
-          functionName: "getAdminWallet",
-        }) as string;
-      } catch (error) {
-        console.warn('⚠️ Using fallback admin wallet:', adminWallet);
-      }
-      
-      // Execute the transfer after approval
-      const transferResponse = await fetch('/api/gas-station/execute-transfer-after-approval', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userAddress: address,
-          adminAddress: adminWallet,
-          usdtAmount,
-          chainId: 56
-        })
-      });
-
-      const transferResult = await transferResponse.json();
-
-      if (!transferResponse.ok) {
-        console.error('❌ Transfer after approval failed:', transferResult);
-        throw new Error(transferResult.error || 'Failed to execute transfer after approval');
-      }
-
-      console.log('✅ USDT transfer successful after approval:', transferResult.txHash);
-      
-      return transferResult.txHash;
-
-    } catch (error) {
-      console.error('❌ Transfer after approval failed:', error);
-      throw new Error(`Transfer after approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
 
   // Add new function to check if user needs manual approval
-  const checkIfManualApprovalNeeded = async (): Promise<{ needsApproval: boolean, canAutoApprove: boolean }> => {
-    if (!address || chainId !== 56) {
-      return { needsApproval: true, canAutoApprove: false };
-    }
-
-    try {
-      const gasStationAddress = "0x1dA2b030808D46678284dB112bfe066AA9A8be0E" as Address;
-      
-      // Check current allowance
-      const currentAllowance = await readContract(config as any, {
-        address: CONTRACTS.USDT[56],
-        abi: USDT_ABI,
-        functionName: 'allowance',
-        args: [address, gasStationAddress]
-      });
-
-      const minRequiredAmount = parseUnits("1", 18); // 1 USDT minimum
-      const needsApproval = currentAllowance < minRequiredAmount;
-
-      const canAutoApprove = false;
-
-      return { needsApproval, canAutoApprove };
-
-    } catch (error) {
-      console.error('❌ Failed to check approval status:', error);
-      return { needsApproval: true, canAutoApprove: false };
-    }
-  };
 
 
 
-  const verifyUSDTBalance = async (requiredAmount: string): Promise<{ hasBalance: boolean; currentBalance: string; error?: string }> => {
-    if (!address || chainId !== 56) {
-      return { hasBalance: false, currentBalance: '0', error: 'Wallet not connected or wrong network' };
-    }
-
-    try {
-      console.log('🔍 Verifying USDT balance for gasless order:', {
-        userAddress: address,
-        requiredAmount,
-        chainId,
-        contract: CONTRACTS.USDT[56]
-      });
-
-      // 🔥 FIX: Use correct decimals for BSC USDT
-      // First, get the actual decimals from the contract
-      let actualDecimals = 18; // Default to 18 for BSC USDT
-      try {
-        const decimalsResult = await readContract(config as any, {
-          address: CONTRACTS.USDT[56],
-          abi: [
-            {
-              inputs: [],
-              name: "decimals",
-              outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-              stateMutability: "view",
-              type: "function",
-            }
-          ],
-          functionName: 'decimals'
-        });
-        actualDecimals = Number(decimalsResult);
-        console.log('📊 USDT contract decimals:', actualDecimals);
-      } catch (decimalsError) {
-        console.warn('⚠️ Could not read decimals from contract, using default 18:', decimalsError);
-        actualDecimals = 18; // BSC USDT typically uses 18 decimals
-      }
-
-      // Read current USDT balance
-      const balance = await readContract(config as any, {
-        address: CONTRACTS.USDT[56],
-        abi: USDT_ABI,
-        functionName: 'balanceOf',
-        args: [address]
-      });
-
-      const requiredWei = parseUnits(requiredAmount, actualDecimals);
-      const currentBalance = formatUnits(balance as bigint, actualDecimals);
-      const hasBalance = (balance as bigint) >= requiredWei;
-
-      console.log('💰 USDT Balance verification result (BSC):', {
-        required: requiredAmount,
-        current: currentBalance,
-        hasBalance,
-        rawBalance: (balance as bigint).toString(),
-        requiredWei: requiredWei.toString(),
-        decimals: actualDecimals,
-        contract: CONTRACTS.USDT[56]
-      });
-
-      return {
-        hasBalance,
-        currentBalance,
-        error: hasBalance ? undefined : `Insufficient USDT balance. Required: ${requiredAmount}, Available: ${currentBalance}`
-      };
-
-    } catch (error) {
-      console.error('❌ Failed to verify USDT balance:', error);
-      return {
-        hasBalance: false,
-        currentBalance: '0',
-        error: `Failed to check USDT balance: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
-  };
 
   return {
     address,
@@ -1852,7 +1363,7 @@ export function useWalletManager() {
     isLoading: isLoading || isPending || isConfirming,
     fetchWalletData,
     refetchBalances,
-    switchChain,
+    switchChain: switchChainAsync,
     isOnBSC,
     switchToBSC,
     canTrade: walletData?.canTrade || false,
@@ -1869,18 +1380,11 @@ export function useWalletManager() {
 
     transferUSDT,
     approveUSDT,
-    approveGasStationForSell,
 
     createSellOrder,
     createBuyOrder,
-    createGaslessSellOrder,
-    approveGasStationAfterFunding,
-    executeTransferAfterApproval, // 🔥 NEW: Add transfer after approval function
-    checkIfManualApprovalNeeded,
-    verifyUSDTBalance, // 🔥 NEW: Add balance verification function
-    gasStationEnabled: GAS_STATION_ENABLED,
 
-    hash,
+    hash: txHash,
     isPending,
     isConfirming,
   };
