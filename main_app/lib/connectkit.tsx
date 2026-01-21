@@ -24,7 +24,7 @@ if (!projectId || !clientKey || !appId) {
   console.warn('- NEXT_PUBLIC_PROJECT_ID');
   console.warn('- NEXT_PUBLIC_CLIENT_KEY');
   console.warn('- NEXT_PUBLIC_APP_ID');
-  console.warn('Get these values from: https://dashboard.particle.network');
+  console.warn('Get these values from: https://flat.particle.network');
   console.warn('Using fallback configuration for development...');
 
   // Fallback values for development
@@ -60,11 +60,35 @@ function ensureAuthCoreInitialized() {
 
 
 
+// Configure BSC with more reliable RPCs
+const bscWithCustomRPC = {
+  ...bsc,
+  rpcUrls: {
+    ...bsc.rpcUrls,
+    default: {
+      http: [
+        'https://binance.llamarpc.com',
+        'https://bsc-dataseed.binance.org',
+        'https://rpc.ankr.com/bsc',
+        'https://1binance.publicnode.com',
+      ],
+    },
+    public: {
+      http: [
+        'https://binance.llamarpc.com',
+        'https://bsc-dataseed.binance.org',
+        'https://rpc.ankr.com/bsc',
+        'https://1binance.publicnode.com',
+      ],
+    },
+  },
+};
+
 const config = createConfig({
   projectId,
   clientKey,
   appId,
-  chains: [bsc],
+  chains: [bscWithCustomRPC],
   appearance: {
     splitEmailAndPhone: false,
     collapseWalletList: false,
@@ -82,7 +106,7 @@ const config = createConfig({
     },
     logo: '/srd.jpg',
   },
-  
+
   walletConnectors: [
     evmWalletConnectors({
       metadata: {
@@ -120,9 +144,9 @@ const config = createConfig({
       name: "BICONOMY",
       version: "2.0.0",
     }),
-    
+
   ]
-  
+
 });
 
 // Use a singleton pattern to prevent multiple initializations

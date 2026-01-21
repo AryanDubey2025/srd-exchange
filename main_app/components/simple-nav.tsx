@@ -1,8 +1,20 @@
 'use client'
 
 import Image from 'next/image'
+import { CircleUser, Wallet } from 'lucide-react'
+import { useWalletManager } from '@/hooks/useWalletManager'
+import { useState } from 'react'
+import { useSidebar } from '@/context/SidebarContext'
 
 export default function SimpleNav() {
+  const [bnbEnabled, setBnbEnabled] = useState(false);
+  const { openSidebar } = useSidebar();
+
+  const {
+    address,
+    walletData,
+  } = useWalletManager();
+
   return (
     <nav className="w-full bg-black border-b border-gray-800 text-white px-3 py-2">
       <div className="flex items-center justify-between w-full">
@@ -11,8 +23,8 @@ export default function SimpleNav() {
           <Image
             src="/srd_final.svg"
             alt="SRD Exchange Logo"
-            width={10}
-            height={10}
+            width={80}
+            height={80}
             className="w-20 h-20 object-contain"
           />
           <span className="text-xl font-bold  tracking-tight hidden md:flex md:flex-row">
@@ -22,23 +34,44 @@ export default function SimpleNav() {
 
         {/* Right Section - Social Icons and Help */}
         <div className="flex items-center space-x-6">
-          {/* Social Icons */}
-          <div className="flex items-center space-x-3">
-            {/* Twitter/X Icon */}
-            <a href="https://x.com/SrdExchange" className="w-8 h-8 flex items-center justify-center transition-all duration-200 hover:scale-110">
-              <svg
-                className="w-5 h-5 fill-current text-white" 
-                viewBox="0 0 24 24"
-              >
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-              </svg>
-            </a>
-          </div>
+          {/* BNB Toggle */}
+          <button
+            onClick={() => setBnbEnabled(!bnbEnabled)}
+            className={`w-12 h-8 rounded-2xl flex items-center justify-center border transition
+      ${bnbEnabled
+                ? "bg-yellow-400/20 border-yellow-400"
+                : "bg-white/10 border-white/20 hover:bg-white/20"}
+    `}
+          >
+            <Image
+              src="/bsc.svg" // place BNB icon in public folder
+              alt="BNB"
+              width={24}
+              height={24}
+              className={`w-6 h-6 transition ${bnbEnabled ? "opacity-100" : "opacity-100"
+                }`}
+            />
+          </button>
 
-          {/* Help Text */}
-          <a href='https://telegram.me/SrdExchangeGlobal' className="text-white font-medium text-base cursor-pointer hover:text-gray-300 transition-colors duration-200">
-            Help
-          </a>
+          {/* User Section - Clickable to open Sidebar */}
+          <button
+            onClick={openSidebar}
+            className="flex items-center space-x-3 px-3 py-1.5 border border-[#622DBF] rounded-lg bg-[#622DBF]/5 hover:bg-[#622DBF]/15 transition-all group"
+          >
+            <div className="flex items-center space-x-2">
+              <Image
+                src="/wallett.svg"
+                alt="Wallet"
+                width={20}
+                height={20}
+                className="w-5 h-5"
+              />
+              <span className="text-sm font-medium text-[#622DBF]">
+                Wallet
+              </span>
+            </div>
+            
+          </button>
         </div>
       </div>
     </nav>
