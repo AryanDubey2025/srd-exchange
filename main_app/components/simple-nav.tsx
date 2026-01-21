@@ -1,26 +1,20 @@
 'use client'
 
 import Image from 'next/image'
-import { CircleUser } from 'lucide-react'
+import { CircleUser, Wallet } from 'lucide-react'
 import { useWalletManager } from '@/hooks/useWalletManager'
 import { useState } from 'react'
-import RightSidebar from './RightSidebar'
+import { useSidebar } from '@/context/SidebarContext'
 
 export default function SimpleNav() {
   const [bnbEnabled, setBnbEnabled] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { openSidebar } = useSidebar();
 
   const {
     address,
-    isConnected,
     walletData,
-    isLoading: walletLoading,
-    approveUSDT,
   } = useWalletManager();
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 8)}...${addr.slice(-6)}`;
-  };
   return (
     <nav className="w-full bg-black border-b border-gray-800 text-white px-3 py-2">
       <div className="flex items-center justify-between w-full">
@@ -29,8 +23,8 @@ export default function SimpleNav() {
           <Image
             src="/srd_final.svg"
             alt="SRD Exchange Logo"
-            width={10}
-            height={10}
+            width={80}
+            height={80}
             className="w-20 h-20 object-contain"
           />
           <span className="text-xl font-bold  tracking-tight hidden md:flex md:flex-row">
@@ -49,45 +43,37 @@ export default function SimpleNav() {
                 : "bg-white/10 border-white/20 hover:bg-white/20"}
     `}
           >
-            <img
-              src="/bsc-wallet.svg" // place BNB icon in public folder
+            <Image
+              src="/bsc.svg" // place BNB icon in public folder
               alt="BNB"
-              className={`w-6 h-6 transition ${bnbEnabled ? "opacity-100" : "opacity-50"
+              width={24}
+              height={24}
+              className={`w-6 h-6 transition ${bnbEnabled ? "opacity-100" : "opacity-100"
                 }`}
             />
           </button>
 
           {/* User Section - Clickable to open Sidebar */}
-          <div
-            onClick={() => setIsSidebarOpen(true)}
-            className="flex items-center space-x-2 cursor-pointer hover:bg-white/5 p-1 rounded-lg transition-colors"
+          <button
+            onClick={openSidebar}
+            className="flex items-center space-x-3 px-3 py-1.5 border border-[#622DBF] rounded-lg bg-[#622DBF]/5 hover:bg-[#622DBF]/15 transition-all group"
           >
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/10 flex items-center justify-center">
-              <CircleUser className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-
-            <div className="flex flex-col items-start">
-              <span className="text-xs sm:text-sm text-white font-medium">
-                {walletData?.smartWallet?.address
-                  ? `${walletData.smartWallet.address.slice(0, 6)}...${walletData.smartWallet.address.slice(-4)}`
-                  : address
-                  ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                  : "Connect Wallet"}
+            <div className="flex items-center space-x-2">
+              <Image
+                src="/wallett.svg"
+                alt="Wallet"
+                width={20}
+                height={20}
+                className="w-5 h-5"
+              />
+              <span className="text-sm font-medium text-[#622DBF]">
+                Wallet
               </span>
             </div>
-          </div>
+            
+          </button>
         </div>
       </div>
-
-      <RightSidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        address={walletData?.smartWallet?.address || address}
-        userBalances={{
-          usdt: walletData?.smartWallet?.usdtBalance || "0",
-          inr: "0"
-        }}
-      />
     </nav>
   )
 }
