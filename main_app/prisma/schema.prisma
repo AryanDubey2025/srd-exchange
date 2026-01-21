@@ -8,19 +8,20 @@ datasource db {
 }
 
 model User {
-  id               String       @id @default(cuid())
-  walletAddress    String       @unique
-  role             UserRole     @default(USER)
-  upiId            String?      
-  profileCompleted Boolean      @default(false)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  lastLoginAt      DateTime?
-  
+  id                 String    @id @default(cuid())
+  walletAddress      String    @unique
+  smartWalletAddress String?   @unique
+  role               UserRole  @default(USER)
+  upiId              String?
+  profileCompleted   Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lastLoginAt        DateTime?
+
   // Relations
-  orders       Order[]
-  bankDetails  BankDetails?
-  
+  orders      Order[]
+  bankDetails BankDetails?
+
   @@map("users")
 }
 
@@ -34,18 +35,18 @@ model BankDetails {
   accountHolderName String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  
+
   @@map("bank_details")
 }
 
 model Order {
   id                    String      @id @default(cuid())
   userId                String
-  blockchainOrderId     String?    
+  blockchainOrderId     String?
   user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount                Decimal
   usdtAmount            Decimal?
-  customAmount          Decimal?    
+  customAmount          Decimal?
   orderType             OrderType
   status                OrderStatus @default(PENDING)
   paymentProof          String?
@@ -55,27 +56,27 @@ model Order {
   buyRate               Decimal?
   sellRate              Decimal?
   userConfirmedReceived Boolean     @default(false)
-  userConfirmedAt       DateTime?  
+  userConfirmedAt       DateTime?
   isVerifiedOnChain     Boolean     @default(false)
   isCompletedOnChain    Boolean     @default(false)
-  transactionHash       String?     
+  transactionHash       String?
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
-  
+
   @@map("orders")
 }
 
 model Rate {
-  id          String      @id @default(cuid())
-  type        RateType    
-  currency    CurrencyType @default(UPI)
-  buyRate     Decimal
-  sellRate    Decimal
-  updatedBy   String      
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  @@unique([type, currency]) 
+  id        String       @id @default(cuid())
+  type      RateType
+  currency  CurrencyType @default(UPI)
+  buyRate   Decimal
+  sellRate  Decimal
+  updatedBy String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([type, currency])
   @@map("rates")
 }
 
