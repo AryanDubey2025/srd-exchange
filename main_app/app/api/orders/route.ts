@@ -15,9 +15,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Find user by wallet address
-    const user = await prisma.user.findUnique({
-      where: { walletAddress: walletAddress.toLowerCase() },
+    // Find user by wallet address OR smart wallet address
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { walletAddress: walletAddress.toLowerCase() },
+          { smartWalletAddress: walletAddress.toLowerCase() }
+        ]
+      },
       include: {
         orders: {
           orderBy: { createdAt: 'desc' },
@@ -138,60 +143,60 @@ export async function POST(request: NextRequest) {
       validStatus: validStatus
     });
 
-    // Find or create user
-    let user = await prisma.user.findUnique({
-      where: { walletAddress: walletAddress.toLowerCase() }
-    })
+    // New logic: Consolidate User Identity
+    let user = null;
 
-    if (!user) {
-      console.log('👤 Creating new user for wallet:', walletAddress);
+    if (linkedEoaAddress) {
+      // 1. Try to find the Main User by EOA address
+      user = await prisma.user.findUnique({
+        where: { walletAddress: linkedEoaAddress.toLowerCase() }
+      });
 
-      // Check if we have a linked EOA address to copy profile data from
-      let upiIdToCopy = null;
-      let profileCompleted = false;
+      if (user) {
+        console.log('✅ Found Main User via EOA:', user.id);
 
-      if (linkedEoaAddress) {
-        console.log('🔗 Checking linked EOA user:', linkedEoaAddress);
-        const linkedUser = await prisma.user.findUnique({
-          where: { walletAddress: linkedEoaAddress.toLowerCase() }
-        });
-
-        if (linkedUser && linkedUser.upiId) {
-          console.log('✅ Found linked user with UPI ID:', linkedUser.upiId);
-          upiIdToCopy = linkedUser.upiId;
-          profileCompleted = true; // Assume profile completed if we have UPI ID
-        }
-      }
-
-      user = await prisma.user.create({
-        data: {
-          walletAddress: walletAddress.toLowerCase(),
-          role: 'USER',
-          upiId: upiIdToCopy,
-          profileCompleted: profileCompleted
-        }
-      })
-    } else {
-      // User exists - Check if we need to "heal" missing UPI ID (for retroactive fix)
-      if (!user.upiId && linkedEoaAddress) {
-        console.log('🔄 Existing user missing UPI ID, attempting to link with EOA:', linkedEoaAddress);
-
-        const linkedUser = await prisma.user.findUnique({
-          where: { walletAddress: linkedEoaAddress.toLowerCase() }
-        });
-
-        if (linkedUser && linkedUser.upiId) {
-          console.log('✅ Found linked user with UPI ID, updating existing profile:', linkedUser.upiId);
-
+        // 2. Update smartWalletAddress if not set
+        if (!user.smartWalletAddress && walletAddress.toLowerCase() !== linkedEoaAddress.toLowerCase()) {
           user = await prisma.user.update({
             where: { id: user.id },
-            data: {
-              upiId: linkedUser.upiId,
-              profileCompleted: true
-            }
+            data: { smartWalletAddress: walletAddress.toLowerCase() }
           });
-          console.log('✨ User profile updated with UPI ID');
+          console.log('🔗 Linked Smart Wallet to Main User');
         }
+
+        // 3. Heal History: Check for "Ghost User" (created via SW address) and merge orders
+        const ghostUser = await prisma.user.findUnique({
+          where: { walletAddress: walletAddress.toLowerCase() }
+        });
+
+        if (ghostUser && ghostUser.id !== user.id) {
+          console.log('👻 Found Ghost User with orders:', ghostUser.id);
+          // Move orders to Main User
+          await prisma.order.updateMany({
+            where: { userId: ghostUser.id },
+            data: { userId: user.id }
+          });
+          console.log('📦 Moved orders from Ghost User to Main User');
+        }
+      }
+    }
+
+    // Fallback: If no linked user found, find/create by walletAddress (standard flow)
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { walletAddress: walletAddress.toLowerCase() }
+      });
+
+      if (!user) {
+        // Check if this walletAddress is a smartWalletAddress for someone else?
+        // (Edge case, but let's stick to simple creation for now)
+        console.log('👤 Creating new user for wallet:', walletAddress);
+        user = await prisma.user.create({
+          data: {
+            walletAddress: walletAddress.toLowerCase(),
+            role: 'USER'
+          }
+        });
       }
     }
 
