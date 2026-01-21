@@ -168,7 +168,7 @@ export default function WalletConnectModal({
           // Existing user with completed profile
           setAuthStep("success");
           setTimeout(() => {
-            router.push("/dashboard");
+            router.push("/flat");
             onClose();
           }, 1500);
         }
@@ -302,11 +302,10 @@ export default function WalletConnectModal({
           />
 
           <motion.div
-            className={`fixed bg-[#0A0A0A] z-[9999] overflow-y-auto border border-[#622DBF] ${
-              isMobile
+            className={`fixed bg-[#0A0A0A] z-[9999] overflow-y-auto border border-[#622DBF] ${isMobile
                 ? "bottom-0 mx-2 left-0 right-0 h-[85vh] rounded-t-3xl"
                 : "top-0 right-0 h-full w-full max-w-xl sm:max-w-2xl rounded-md"
-            }`}
+              }`}
             initial={
               isMobile ? mobileVariants.initial : desktopVariants.initial
             }
@@ -325,15 +324,13 @@ export default function WalletConnectModal({
 
             {/* Header */}
             <div
-              className={`sticky top-0 bg-[#0A0A0A] border-b border-[#2A2A2A] z-10 ${
-                isMobile ? "p-4" : "p-4 sm:p-5"
-              }`}
+              className={`sticky top-0 bg-[#0A0A0A] border-b border-[#2A2A2A] z-10 ${isMobile ? "p-4" : "p-4 sm:p-5"
+                }`}
             >
               <div className="flex items-center justify-between">
                 <h2
-                  className={`font-bold text-white font-montserrat ${
-                    isMobile ? "text-xl" : "text-2xl sm:text-3xl"
-                  }`}
+                  className={`font-bold text-white font-montserrat ${isMobile ? "text-xl" : "text-2xl sm:text-3xl"
+                    }`}
                 >
                   Connect your wallet
                 </h2>
@@ -345,9 +342,8 @@ export default function WalletConnectModal({
                 </button>
               </div>
               <p
-                className={`text-gray-400 mt-2 font-montserrat max-w-lg ${
-                  isMobile ? "text-sm" : "text-sm sm:text-base"
-                }`}
+                className={`text-gray-400 mt-2 font-montserrat max-w-lg ${isMobile ? "text-sm" : "text-sm sm:text-base"
+                  }`}
               >
                 Securely link your crypto wallet to start trading <br />{" "}
                 instantly — no sign-up, no hassle.
@@ -370,34 +366,30 @@ export default function WalletConnectModal({
                             handleConnect();
                           }}
                           disabled={isLoading || !acceptTerms}
-                          className={`w-full bg-[#0C0C0C] hover:bg-[#222] border border-[#292525] rounded-xl transition-all duration-200 group disabled:opacity-50 ${
-                            isMobile ? "p-3" : "p-4 sm:p-3"
-                          }`}
+                          className={`w-full bg-[#0C0C0C] hover:bg-[#222] border border-[#292525] rounded-xl transition-all duration-200 group disabled:opacity-50 ${isMobile ? "p-3" : "p-4 sm:p-3"
+                            }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-start space-x-4 sm:space-x-2">
                             <div
-                              className={`relative flex-shrink-0 ${
-                                isMobile
+                              className={`relative flex-shrink-0 ${isMobile
                                   ? "w-10 h-10"
                                   : "w-12 h-12 sm:w-12 sm:h-14"
-                              }`}
+                                }`}
                             >
                               {wallet.useIcon && wallet.iconComponent ? (
                                 <div
-                                  className={`bg-gradient-to-br from-[#622DBF] to-[#8B5CF6] rounded-lg flex items-center justify-center ${
-                                    isMobile
+                                  className={`bg-gradient-to-br from-[#622DBF] to-[#8B5CF6] rounded-lg flex items-center justify-center ${isMobile
                                       ? "w-10 h-10"
                                       : "w-12 h-12 sm:w-12 sm:h-15"
-                                  }`}
+                                    }`}
                                 >
                                   <wallet.iconComponent
-                                    className={`text-white ${
-                                      isMobile
+                                    className={`text-white ${isMobile
                                         ? "w-6 h-6"
                                         : "w-7 h-7 sm:w-8 sm:h-8"
-                                    }`}
+                                      }`}
                                   />
                                 </div>
                               ) : (
@@ -413,11 +405,10 @@ export default function WalletConnectModal({
                             <div className="text-left flex-1">
                               <div className="flex items-center justify-between mb-2">
                                 <div
-                                  className={`text-white font-medium font-montserrat ${
-                                    isMobile
+                                  className={`text-white font-medium font-montserrat ${isMobile
                                       ? "text-base"
                                       : "text-md sm:text-lg"
-                                  }`}
+                                    }`}
                                 >
                                   {wallet.name}
                                 </div>
@@ -431,11 +422,10 @@ export default function WalletConnectModal({
                                 {wallet.features.map((feature, idx) => (
                                   <span
                                     key={idx}
-                                    className={`bg-[#622DBF]/20 text-gray-400 rounded-full font-montserrat ${
-                                      isMobile
+                                    className={`bg-[#622DBF]/20 text-gray-400 rounded-full font-montserrat ${isMobile
                                         ? "text-xs px-2 py-1"
                                         : "text-xs sm:text-sm px-3 py-1"
-                                    }`}
+                                      }`}
                                   >
                                     {feature}
                                   </span>
@@ -452,30 +442,26 @@ export default function WalletConnectModal({
                   <motion.button
                     onClick={() => setShowAllWallets(true)}
                     disabled={!acceptTerms}
-                    className={`w-full mt-2 sm:mt-2 bg-[#0C0C0C] hover:bg-[#222] border border-[#292525] rounded-xl transition-all duration-200 group disabled:opacity-50 ${
-                      isMobile ? "p-3" : "p-2 sm:p-2"
-                    }`}
+                    className={`w-full mt-2 sm:mt-2 bg-[#0C0C0C] hover:bg-[#222] border border-[#292525] rounded-xl transition-all duration-200 group disabled:opacity-50 ${isMobile ? "p-3" : "p-2 sm:p-2"
+                      }`}
                     whileHover={{ scale: 1.02 }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <Wallet
-                          className={`text-gray-400 ${
-                            isMobile ? "w-6 h-6" : "w-6 h-6 sm:w-8 sm:h-8"
-                          }`}
+                          className={`text-gray-400 ${isMobile ? "w-6 h-6" : "w-6 h-6 sm:w-8 sm:h-8"
+                            }`}
                         />
                         <div className="text-left">
                           <div
-                            className={`text-white font-medium font-montserrat ${
-                              isMobile ? "text-base" : "text-lg sm:text-xl"
-                            }`}
+                            className={`text-white font-medium font-montserrat ${isMobile ? "text-base" : "text-lg sm:text-xl"
+                              }`}
                           >
                             View All Wallets
                           </div>
                           <div
-                            className={`text-gray-400 font-montserrat ${
-                              isMobile ? "text-sm" : "text-sm sm:text-base"
-                            }`}
+                            className={`text-gray-400 font-montserrat ${isMobile ? "text-sm" : "text-sm sm:text-base"
+                              }`}
                           >
                             See all available wallet options
                           </div>
@@ -490,11 +476,10 @@ export default function WalletConnectModal({
                   {/* Back Button */}
                   <button
                     onClick={() => setShowAllWallets(false)}
-                    className={`flex items-center space-x-2 text-gray-400 hover:text-white font-montserrat ${
-                      isMobile
+                    className={`flex items-center space-x-2 text-gray-400 hover:text-white font-montserrat ${isMobile
                         ? "mb-4 text-sm"
                         : "mb-6 sm:mb-8 text-sm sm:text-base"
-                    }`}
+                      }`}
                   >
                     <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
                     <span>Back</span>
@@ -512,23 +497,20 @@ export default function WalletConnectModal({
               {/* Phone Number/Email Coming Soon */}
               <motion.button
                 disabled={!acceptTerms}
-                className={`w-full mt-2 sm:mt-2 bg-[#0C0C0C] hover:bg-[#222] border border-[#292525] rounded-xl transition-all duration-200 group disabled:opacity-50 ${
-                  isMobile ? "p-3" : "p-2 sm:p-3"
-                }`}
+                className={`w-full mt-2 sm:mt-2 bg-[#0C0C0C] hover:bg-[#222] border border-[#292525] rounded-xl transition-all duration-200 group disabled:opacity-50 ${isMobile ? "p-3" : "p-2 sm:p-3"
+                  }`}
                 whileHover={{ scale: 1.02 }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <Signal
-                      className={`text-gray-400 ${
-                        isMobile ? "w-6 h-6" : "w-6 h-6 sm:w-8 sm:h-8"
-                      }`}
+                      className={`text-gray-400 ${isMobile ? "w-6 h-6" : "w-6 h-6 sm:w-8 sm:h-8"
+                        }`}
                     />
                     <div className="text-left">
                       <div
-                        className={`text-white font-medium font-montserrat ${
-                          isMobile ? "text-base" : "text-lg sm:text-xl"
-                        }`}
+                        className={`text-white font-medium font-montserrat ${isMobile ? "text-base" : "text-lg sm:text-xl"
+                          }`}
                       >
                         Phone Number/Email
                       </div>
@@ -539,31 +521,30 @@ export default function WalletConnectModal({
               </motion.button>
 
               {/* Terms and Conditions Checkbox */}
-              <motion.div 
+              <motion.div
                 className={`mt-4 ${isMobile ? "mt-3" : "mt-4"}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
               >
-                <motion.label 
+                <motion.label
                   className="flex items-start space-x-3 cursor-pointer group"
                   whileHover={{ x: 2 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <motion.div 
-                    className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center transition-all mt-0.5 ${
-                      acceptTerms 
-                        ? 'bg-[#622DBF] border-[#622DBF]' 
+                  <motion.div
+                    className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center transition-all mt-0.5 ${acceptTerms
+                        ? 'bg-[#622DBF] border-[#622DBF]'
                         : 'bg-[#1E1C1C] border-[#3E3E3E] group-hover:border-[#622DBF]/50'
-                    }`}
+                      }`}
                     onClick={() => setAcceptTerms(!acceptTerms)}
                     whileTap={{ scale: 0.9 }}
                   >
                     <AnimatePresence>
                       {acceptTerms && (
-                        <motion.svg 
-                          className="w-3 h-3 text-white" 
-                          fill="currentColor" 
+                        <motion.svg
+                          className="w-3 h-3 text-white"
+                          fill="currentColor"
                           viewBox="0 0 20 20"
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
@@ -576,14 +557,13 @@ export default function WalletConnectModal({
                     </AnimatePresence>
                   </motion.div>
                   <div className="flex-1">
-                    <span 
-                      className={`font-medium font-montserrat transition-colors ${
-                        isMobile ? "text-sm" : "text-sm sm:text-base"
-                      } ${acceptTerms ? "text-white" : "text-gray-300 group-hover:text-white"}`}
+                    <span
+                      className={`font-medium font-montserrat transition-colors ${isMobile ? "text-sm" : "text-sm sm:text-base"
+                        } ${acceptTerms ? "text-white" : "text-gray-300 group-hover:text-white"}`}
                     >
                       I accept the{" "}
                       <a
-                       
+
                         className="text-[#622DBF] hover:text-[#8B5CF6] underline transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -599,58 +579,50 @@ export default function WalletConnectModal({
 
               {/* Benefits Section */}
               <div
-                className={`pt-6 sm:pt-8 border-t border-gray-800 ${
-                  isMobile ? "mt-6" : "mt-8 sm:mt-12"
-                }`}
+                className={`pt-6 sm:pt-8 border-t border-gray-800 ${isMobile ? "mt-6" : "mt-8 sm:mt-12"
+                  }`}
               >
                 <h3
-                  className={`text-white font-medium font-montserrat ${
-                    isMobile
+                  className={`text-white font-medium font-montserrat ${isMobile
                       ? "text-base mb-4"
                       : "text-lg sm:text-xl mb-4 sm:mb-6"
-                  }`}
+                    }`}
                 >
                   Why connect your wallet?
                 </h3>
                 <div className="space-y-4 sm:space-y-6">
                   <div className="flex items-start space-x-3 sm:space-x-4">
                     <Shield
-                      className={`text-green-400 mt-0.5 flex-shrink-0 ${
-                        isMobile ? "w-5 h-5" : "w-5 h-5 sm:w-6 sm:h-6"
-                      }`}
+                      className={`text-green-400 mt-0.5 flex-shrink-0 ${isMobile ? "w-5 h-5" : "w-5 h-5 sm:w-6 sm:h-6"
+                        }`}
                     />
                     <span
-                      className={`text-gray-400 font-montserrat leading-relaxed ${
-                        isMobile ? "text-sm" : "text-sm sm:text-base"
-                      }`}
+                      className={`text-gray-400 font-montserrat leading-relaxed ${isMobile ? "text-sm" : "text-sm sm:text-base"
+                        }`}
                     >
                       Trade directly from your wallet - no deposits needed
                     </span>
                   </div>
                   <div className="flex items-start space-x-3 sm:space-x-4">
                     <CheckCircle2
-                      className={`text-green-400 mt-0.5 flex-shrink-0 ${
-                        isMobile ? "w-5 h-5" : "w-5 h-5 sm:w-6 sm:h-6"
-                      }`}
+                      className={`text-green-400 mt-0.5 flex-shrink-0 ${isMobile ? "w-5 h-5" : "w-5 h-5 sm:w-6 sm:h-6"
+                        }`}
                     />
                     <span
-                      className={`text-gray-400 font-montserrat leading-relaxed ${
-                        isMobile ? "text-sm" : "text-sm sm:text-base"
-                      }`}
+                      className={`text-gray-400 font-montserrat leading-relaxed ${isMobile ? "text-sm" : "text-sm sm:text-base"
+                        }`}
                     >
                       Real-time balance updates and instant transactions
                     </span>
                   </div>
                   <div className="flex items-start space-x-3 sm:space-x-4">
                     <Wallet
-                      className={`text-green-400 mt-0.5 flex-shrink-0 ${
-                        isMobile ? "w-5 h-5" : "w-5 h-5 sm:w-6 sm:h-6"
-                      }`}
+                      className={`text-green-400 mt-0.5 flex-shrink-0 ${isMobile ? "w-5 h-5" : "w-5 h-5 sm:w-6 sm:h-6"
+                        }`}
                     />
                     <span
-                      className={`text-gray-400 font-montserrat leading-relaxed ${
-                        isMobile ? "text-sm" : "text-sm sm:text-base"
-                      }`}
+                      className={`text-gray-400 font-montserrat leading-relaxed ${isMobile ? "text-sm" : "text-sm sm:text-base"
+                        }`}
                     >
                       Full control of your funds at all times
                     </span>
@@ -660,16 +632,14 @@ export default function WalletConnectModal({
 
               {/* Footer */}
               <motion.div
-                className={`px-4 sm:px-4 flex justify-center rounded-lg ${
-                  isMobile ? "mt-8" : "mt-12 sm:mt-12"
-                }`}
+                className={`px-4 sm:px-4 flex justify-center rounded-lg ${isMobile ? "mt-8" : "mt-12 sm:mt-12"
+                  }`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
                 <p
-                  className={`text-white font-montserrat ${
-                    isMobile ? "text-sm" : "text-sm sm:text-base"
-                  }`}
+                  className={`text-white font-montserrat ${isMobile ? "text-sm" : "text-sm sm:text-base"
+                    }`}
                 >
                   Having issues ?{" "}
                   <span className="underline text-[#622DBF]"> Connect us</span>
