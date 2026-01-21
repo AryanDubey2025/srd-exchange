@@ -568,7 +568,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, address, smartWa
                                         onClick={() => setCurrentView('Receive')}
                                         className="flex items-center justify-center gap-2 bg-[#6320EE] hover:bg-[#5219d1] text-white py-4 rounded-2xl font-bold text-lg transition-all active:scale-95"
                                     >
-                                        <div className="w-6 h-6 border-2 border-white rounded-full flex items-center justify-center">
+                                        <div className="w-6 h-6 rounded-full flex items-center justify-center">
                                             <Image src="/rec.svg" alt="Receive" width={24} height={24} />
                                         </div>
                                         Receive
@@ -577,7 +577,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, address, smartWa
                                         onClick={() => setCurrentView('Send')}
                                         className="flex items-center justify-center gap-2 bg-[#6320EE] hover:bg-[#5219d1] text-white py-4 rounded-2xl font-bold text-lg transition-all active:scale-95"
                                     >
-                                        <div className="w-6 h-6 border-2 border-white rounded-full flex items-center justify-center">
+                                        <div className="w-6 h-6  rounded-full flex items-center justify-center">
                                             <Image src="/send.svg" alt="Send" width={24} height={24} />
                                         </div>
                                         Send
