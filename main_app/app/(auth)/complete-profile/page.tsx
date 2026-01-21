@@ -198,7 +198,7 @@ export default function CompleteProfilePage() {
           if (data.user.role === "ADMIN") {
             router.push("/admin");
           } else {
-            router.push("/dashboard");
+            router.push("/flat");
           }
         }, 2000);
       } else {
