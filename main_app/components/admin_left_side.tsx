@@ -248,8 +248,8 @@ export default function AdminLeftSide() {
           <button
             onClick={toggleAutoRefresh}
             className={`text-xs px-2 py-1 rounded transition-all ${autoRefreshEnabled
-                ? 'bg-green-600/20 text-green-400 border border-green-600/30'
-                : 'bg-gray-600/20 text-gray-400 border border-gray-600/30'
+              ? 'bg-green-600/20 text-green-400 border border-green-600/30'
+              : 'bg-gray-600/20 text-gray-400 border border-gray-600/30'
               }`}
             title={autoRefreshEnabled ? 'Auto-refresh enabled' : 'Auto-refresh disabled'}
           >
@@ -299,8 +299,8 @@ export default function AdminLeftSide() {
         <button
           onClick={() => setActiveFilter("Pending")}
           className={`flex items-center justify-center space-x-2 py-1 px-2 rounded-xs text-xs font-medium transition-all flex-1 min-w-0 ${activeFilter === "Pending"
-              ? "bg-[#622DBF] text-white"
-              : "bg-[#1E1E1E] text-gray-300 hover:bg-gray-700/50"
+            ? "bg-[#622DBF] text-white"
+            : "bg-[#1E1E1E] text-gray-300 hover:bg-gray-700/50"
             }`}
         >
           <div className="w-2 h-2 bg-yellow-500 rounded-full flex-shrink-0"></div>
@@ -309,8 +309,8 @@ export default function AdminLeftSide() {
         <button
           onClick={() => setActiveFilter("Completed")}
           className={`flex items-center justify-center space-x-2 py-1 px-2 rounded-xs text-xs font-medium transition-all flex-1 min-w-0 ${activeFilter === "Completed"
-              ? "bg-[#622DBF] text-white"
-              : "bg-[#1E1E1E] text-gray-300 hover:bg-gray-700/50"
+            ? "bg-[#622DBF] text-white"
+            : "bg-[#1E1E1E] text-gray-300 hover:bg-gray-700/50"
             }`}
         >
           <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
@@ -319,8 +319,8 @@ export default function AdminLeftSide() {
         <button
           onClick={() => setActiveFilter("Rejected")}
           className={`flex items-center justify-center space-x-2 py-1 px-2 rounded-xs text-xs font-medium transition-all flex-1 min-w-0 ${activeFilter === "Rejected"
-              ? "bg-[#622DBF] text-white"
-              : "bg-[#1E1E1E] text-gray-300 hover:bg-gray-700/50"
+            ? "bg-[#622DBF] text-white"
+            : "bg-[#1E1E1E] text-gray-300 hover:bg-gray-700/50"
             }`}
         >
           <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
@@ -400,16 +400,7 @@ export default function AdminLeftSide() {
                     <div className="text-white text-xs">{order.time}</div>
                     <div className="text-xs text-gray-400 mt-1">
                       {order.user.smartWalletAddress ? (
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-500">SW:</span>
-                            <span>{order.user.smartWalletAddress.slice(0, 6)}...{order.user.smartWalletAddress.slice(-4)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-500">EOA:</span>
-                            <span>{order.user.walletAddress.slice(0, 6)}...{order.user.walletAddress.slice(-4)}</span>
-                          </div>
-                        </div>
+                        <span>{order.user.smartWalletAddress.slice(0, 6)}...{order.user.smartWalletAddress.slice(-4)}</span>
                       ) : (
                         <span>{order.user.walletAddress.slice(0, 6)}...{order.user.walletAddress.slice(-4)}</span>
                       )}
