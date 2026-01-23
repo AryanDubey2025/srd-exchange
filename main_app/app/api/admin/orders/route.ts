@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
                     select: {
                         id: true,
                         walletAddress: true,
+                        smartWalletAddress: true,
                         upiId: true,
                         bankDetails: true
                     }
