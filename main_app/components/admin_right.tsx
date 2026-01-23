@@ -23,6 +23,7 @@ interface SelectedOrder {
   user: {
     id: string;
     walletAddress: string;
+    smartWalletAddress?: string | null;
     upiId: string | null;
     bankDetails: any;
   };
@@ -85,21 +86,21 @@ export default function AdminRight() {
     const handleOrderSelected = (event: CustomEvent) => {
       console.log('Order selected event received in admin right:', event.detail);
       const selectedOrderData = event.detail.order;
-      
+
       console.log('Setting selected order:', {
         id: selectedOrderData.id,
         fullId: selectedOrderData.fullId,
         orderType: selectedOrderData.orderType,
         amount: selectedOrderData.amount
       });
-      
+
       setSelectedOrder(selectedOrderData);
       setCustomOrderValue(selectedOrderData.amount.toString());
       setIsEditingOrderValue(false);
       setPaymentDetailsSent(false);
       setIsOrderSelected(true);
-      
-    
+
+
       if (selectedOrderData.currency === 'CDM') {
         setUserDetailsTab('BANK');
       } else {
@@ -135,13 +136,13 @@ export default function AdminRight() {
   useEffect(() => {
     const handleReceiptUploaded = (event: CustomEvent) => {
       const { orderId, fileName, fileUrl } = event.detail;
-      
+
       console.log('📄 Receipt uploaded notification received:', {
         orderId,
         fileName,
         fileUrl
       });
-      
+
       setUploadedReceipts(prev => ({
         ...prev,
         [orderId]: {
@@ -151,9 +152,9 @@ export default function AdminRight() {
         }
       }));
     };
-  
+
     window.addEventListener('receiptUploaded', handleReceiptUploaded as EventListener);
-  
+
     return () => {
       window.removeEventListener('receiptUploaded', handleReceiptUploaded as EventListener);
     };
@@ -162,28 +163,28 @@ export default function AdminRight() {
   useEffect(() => {
     const handleUserReceivedMoney = (event: CustomEvent) => {
       const { orderId, orderType, amount, timestamp } = event.detail;
-      
+
       console.log('💰 User received money notification in admin right:', {
         orderId,
         orderType,
         amount,
         timestamp
       });
-      
+
       // Only show notification if this is the currently selected order and it's a SELL order
-      if (selectedOrder && 
-          (selectedOrder.fullId === orderId || selectedOrder.id === orderId) && 
-          orderType.includes('SELL')) {
-        
+      if (selectedOrder &&
+        (selectedOrder.fullId === orderId || selectedOrder.id === orderId) &&
+        orderType.includes('SELL')) {
+
         setUserMoneyNotification({
           orderId,
           message: "User got money in bank",
           amount: amount,
           timestamp: new Date(timestamp)
         });
-        
+
         console.log('📢 Showing user money notification for selected order:', orderId);
-        
+
         // Auto-remove notification after 15 seconds
         setTimeout(() => {
           setUserMoneyNotification(null);
@@ -216,13 +217,13 @@ export default function AdminRight() {
 
     try {
       console.log('Updating rates:', { currency: activeTab, buyRate: newBuyRate, sellRate: newSellRate })
-      
+
       await updateRates(activeTab as 'UPI' | 'CDM', newBuyRate, newSellRate)
-      
+
       // Wait a moment then refresh rates
       setTimeout(async () => {
         await refetch()
-        
+
         // Broadcast rate update event to other components
         window.dispatchEvent(new CustomEvent('ratesUpdated', {
           detail: {
@@ -232,11 +233,11 @@ export default function AdminRight() {
           }
         }))
       }, 500)
-      
+
       setNewBuyRate('')
       setNewSellRate('')
       setUpdateSuccess(true)
-      
+
       // Hide success message after 3 seconds
       setTimeout(() => setUpdateSuccess(false), 3000)
     } catch (error) {
@@ -266,7 +267,7 @@ export default function AdminRight() {
     try {
       const orderId = selectedOrder.fullId || selectedOrder.id;
       const trimmedUpiId = adminUpiId.trim();
-      
+
       // Validate inputs
       if (paymentMethod === 'BUY_UPI') {
         if (!trimmedUpiId || trimmedUpiId.length === 0) {
@@ -276,7 +277,7 @@ export default function AdminRight() {
         }
         console.log('✅ UPI ID validation passed:', trimmedUpiId);
       }
-      
+
       if (paymentMethod === 'BUY_CDM') {
         if (!trimmedUpiId || trimmedUpiId.length === 0) {
           alert('Please enter a valid UPI ID for ₹500 verification');
@@ -285,7 +286,7 @@ export default function AdminRight() {
         }
         console.log('✅ CDM UPI ID validation passed:', trimmedUpiId);
       }
-      
+
       // 🔥 FIX: Parse custom amount properly
       const customAmountValue = parseFloat(customOrderValue);
       if (isNaN(customAmountValue) || customAmountValue <= 0) {
@@ -304,8 +305,8 @@ export default function AdminRight() {
         status: 'ADMIN_APPROVED',
         adminUpiId: trimmedUpiId,
         adminBankDetails: paymentMethod === 'BUY_UPI' ? null : null,
-        adminNotes: paymentMethod === 'BUY_CDM' 
-          ? `UPI ID provided for ₹500 verification. Custom amount: ₹${customAmountValue}` 
+        adminNotes: paymentMethod === 'BUY_CDM'
+          ? `UPI ID provided for ₹500 verification. Custom amount: ₹${customAmountValue}`
           : `Payment details provided. Custom amount: ₹${customAmountValue}`,
         customAmount: customAmountValue // 🔥 ADD: Include custom amount in update
       };
@@ -323,19 +324,19 @@ export default function AdminRight() {
       if (updateResponse.success) {
         // Mark as sent
         setPaymentDetailsSent(true);
-        
+
         // Show success message
         setUpdateSuccess(true);
         setTimeout(() => setUpdateSuccess(false), 3000);
-        
+
         console.log('🎉 Payment details with custom amount saved successfully!', {
           customAmount: customAmountValue,
           adminUpiId: trimmedUpiId
         });
-        
+
         // Clear UPI field after sending
         setAdminUpiId('');
-        
+
       } else {
         throw new Error(updateResponse.error || 'Failed to update order');
       }
@@ -362,7 +363,7 @@ export default function AdminRight() {
   const handleViewReceipt = async (fileUrl: string, fileName: string) => {
     try {
       console.log('📄 Viewing receipt:', { fileUrl, fileName });
-      
+
       const response = await fetch('/api/view-receipt', {
         method: 'POST',
         headers: {
@@ -370,9 +371,9 @@ export default function AdminRight() {
         },
         body: JSON.stringify({ receiptUrl: fileUrl }),
       });
-  
+
       const result = await response.json();
-  
+
       if (result.success) {
         // Open PDF in new window
         window.open(result.signedUrl, '_blank', 'width=800,height=600');
@@ -391,7 +392,7 @@ export default function AdminRight() {
     setSendingBankDetails(true);
     try {
       const orderId = selectedOrder.fullId || selectedOrder.id;
-      
+
       const bankDetailsUpdate = {
         adminBankDetails: JSON.stringify(adminBankDetails),
         adminNotes: `Bank details provided for main transfer. Amount: ${customOrderValue}`,
@@ -407,7 +408,7 @@ export default function AdminRight() {
         setUpdateSuccess(true);
         setTimeout(() => setUpdateSuccess(false), 3000);
         console.log('🎉 Bank details sent successfully!');
-        
+
         // Clear bank details form after sending
         setAdminBankDetails({
           accountNumber: '',
@@ -443,21 +444,19 @@ export default function AdminRight() {
         <div className="flex space-x-3 mb-4">
           <button
             onClick={() => setActiveTab('UPI')}
-            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all font-montserrat ${
-              activeTab === 'UPI'
-                ? 'bg-[#622DBF] text-white'
-                : 'bg-[#101010] text-gray-300 border border-[#3E3E3E] hover:bg-gray-700/50'
-            }`}
+            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all font-montserrat ${activeTab === 'UPI'
+              ? 'bg-[#622DBF] text-white'
+              : 'bg-[#101010] text-gray-300 border border-[#3E3E3E] hover:bg-gray-700/50'
+              }`}
           >
             UPI
           </button>
           <button
             onClick={() => setActiveTab('CDM')}
-            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all font-montserrat ${
-              activeTab === 'CDM'
-                ? 'bg-[#622DBF] text-white'
-                : 'bg-[#101010] text-gray-300 border border-[#3E3E3E] hover:bg-gray-700/50'
-            }`}
+            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all font-montserrat ${activeTab === 'CDM'
+              ? 'bg-[#622DBF] text-white'
+              : 'bg-[#101010] text-gray-300 border border-[#3E3E3E] hover:bg-gray-700/50'
+              }`}
           >
             CDM
           </button>
@@ -473,7 +472,7 @@ export default function AdminRight() {
         <div className="flex space-x-4 mb-6">
           <div className="flex-1 text-center">
             <div className="text-gray-400 text-sm mb-1 font-montserrat">Current Buy Rate</div>
-            <motion.div 
+            <motion.div
               className="text-3xl font-bold text-white font-montserrat"
               key={`buy-${currentBuyRate}`}
               initial={{ scale: 1 }}
@@ -485,7 +484,7 @@ export default function AdminRight() {
           </div>
           <div className="flex-1 text-center">
             <div className="text-gray-400 text-sm mb-1 font-montserrat">Current Sell Rate</div>
-            <motion.div 
+            <motion.div
               className="text-3xl font-bold text-white font-montserrat"
               key={`sell-${currentSellRate}`}
               initial={{ scale: 1 }}
@@ -573,7 +572,7 @@ export default function AdminRight() {
         </AnimatePresence>
 
         {/* Update Price Button */}
-        <button 
+        <button
           onClick={handleUpdatePrice}
           disabled={updating || !newBuyRate || !newSellRate}
           className="w-full bg-[#622DBF] hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 px-6 rounded-md font-bold transition-all shadow-lg shadow-purple-600/25 font-montserrat"
@@ -603,8 +602,8 @@ export default function AdminRight() {
                       💰 {userMoneyNotification.message}
                     </h3>
                     <p className="text-sm text-green-300 font-montserrat">
-                      Order: {userMoneyNotification.orderId.slice(-8)} • 
-                      Amount: ₹{userMoneyNotification.amount} • 
+                      Order: {userMoneyNotification.orderId.slice(-8)} •
+                      Amount: ₹{userMoneyNotification.amount} •
                       Time: {userMoneyNotification.timestamp.toLocaleTimeString()}
                     </p>
                   </div>
@@ -639,7 +638,7 @@ export default function AdminRight() {
                 </button>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-400 text-sm font-montserrat">Order ID:</span>
@@ -704,49 +703,73 @@ export default function AdminRight() {
           {/* User Info Section */}
           <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
             <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">User Info</h3>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <User className="w-5 h-5 text-white" />
-                <span className="text-white text-sm font-montserrat">
-                  {selectedOrder.user.walletAddress.slice(0, 6)}...{selectedOrder.user.walletAddress.slice(-4)}
-                </span>
-                <button 
-                  onClick={() => handleCopy(selectedOrder.user.walletAddress, 'wallet')}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  {copiedField === 'wallet' ? (
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
+            <div className="space-y-3">
+              {selectedOrder.user.smartWalletAddress ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-5 h-5 text-white" />
+                    <span className="text-gray-400 text-sm font-montserrat">Wallet:</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-white text-sm font-montserrat">
+                      {selectedOrder.user.smartWalletAddress.slice(0, 6)}...{selectedOrder.user.smartWalletAddress.slice(-4)}
+                    </span>
+                    <button
+                      onClick={() => handleCopy(selectedOrder.user.smartWalletAddress!, 'smartWallet')}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      {copiedField === 'smartWallet' ? (
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <User className="w-5 h-5 text-white" />
+                    <span className="text-white text-sm font-montserrat">
+                      {selectedOrder.user.walletAddress.slice(0, 6)}...{selectedOrder.user.walletAddress.slice(-4)}
+                    </span>
+                    <button
+                      onClick={() => handleCopy(selectedOrder.user.walletAddress, 'wallet')}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      {copiedField === 'wallet' ? (
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* User Bank & UPI Details Section */}
           <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
             <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">User Payment Details</h3>
-            
+
             {/* Tab Buttons */}
             <div className="flex space-x-3 mb-4">
-              <button 
+              <button
                 onClick={() => setUserDetailsTab('UPI')}
-                className={`py-2 px-4 rounded text-sm font-medium transition-all font-montserrat ${
-                  userDetailsTab === 'UPI'
-                    ? 'bg-[#622DBF] text-white'
-                    : 'bg-[#1E1C1C] text-gray-400 border border-gray-600/50 hover:bg-gray-700/50'
-                }`}
+                className={`py-2 px-4 rounded text-sm font-medium transition-all font-montserrat ${userDetailsTab === 'UPI'
+                  ? 'bg-[#622DBF] text-white'
+                  : 'bg-[#1E1C1C] text-gray-400 border border-gray-600/50 hover:bg-gray-700/50'
+                  }`}
               >
                 USER UPI ID
               </button>
-              <button 
+              <button
                 onClick={() => setUserDetailsTab('BANK')}
-                className={`py-2 px-4 rounded text-sm font-medium transition-all font-montserrat ${
-                  userDetailsTab === 'BANK'
-                    ? 'bg-[#622DBF] text-white'
-                    : 'bg-[#1E1C1C] text-gray-400 border border-gray-600/50 hover:bg-gray-700/50'
-                }`}
+                className={`py-2 px-4 rounded text-sm font-medium transition-all font-montserrat ${userDetailsTab === 'BANK'
+                  ? 'bg-[#622DBF] text-white'
+                  : 'bg-[#1E1C1C] text-gray-400 border border-gray-600/50 hover:bg-gray-700/50'
+                  }`}
               >
                 USER BANK DETAILS
               </button>
@@ -765,7 +788,7 @@ export default function AdminRight() {
                       {selectedOrder.user.upiId || 'Not provided'}
                     </span>
                     {selectedOrder.user.upiId && (
-                      <button 
+                      <button
                         onClick={() => handleCopy(selectedOrder.user.upiId!, 'userUpi')}
                         className="text-gray-400 hover:text-white transition-colors"
                       >
@@ -778,7 +801,7 @@ export default function AdminRight() {
                     )}
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
                     <span className="text-gray-400 text-sm font-montserrat">Verification Status</span>
@@ -806,7 +829,7 @@ export default function AdminRight() {
                         <span className="text-white text-sm font-montserrat flex-1">
                           ****{selectedOrder.user.bankDetails.accountNumber?.slice(-4) || '****'}
                         </span>
-                        <button 
+                        <button
                           onClick={() => handleCopy(selectedOrder.user.bankDetails.accountNumber, 'accountNumber')}
                           className="text-gray-400 hover:text-white transition-colors"
                         >
@@ -828,7 +851,7 @@ export default function AdminRight() {
                           {selectedOrder.user.bankDetails.ifscCode || 'Not provided'}
                         </span>
                         {selectedOrder.user.bankDetails.ifscCode && (
-                          <button 
+                          <button
                             onClick={() => handleCopy(selectedOrder.user.bankDetails.ifscCode, 'ifsc')}
                             className="text-gray-400 hover:text-white transition-colors"
                           >
@@ -888,7 +911,7 @@ export default function AdminRight() {
           {selectedOrder.orderType === 'BUY_UPI' && (
             <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
               <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">Send UPI Payment Details</h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
@@ -934,7 +957,7 @@ export default function AdminRight() {
                   </motion.div>
                 )}
 
-                <button 
+                <button
                   onClick={() => handleSendPaymentDetails('BUY_UPI')}
                   disabled={!adminUpiId || sendingPaymentDetails || paymentDetailsSent}
                   className="w-full bg-[#622DBF] hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-md font-medium transition-all font-montserrat"
@@ -966,7 +989,7 @@ export default function AdminRight() {
               {/* UPI Verification Section for CDM Orders */}
               <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4 mb-6">
                 <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">Send UPI for ₹500 Verification</h3>
-                
+
                 <div className="space-y-4">
                   <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md">
                     <div className="flex items-center space-x-2 mb-1">
@@ -1022,7 +1045,7 @@ export default function AdminRight() {
                     </motion.div>
                   )}
 
-                  <button 
+                  <button
                     onClick={() => handleSendPaymentDetails('BUY_CDM')}
                     disabled={!adminUpiId || sendingPaymentDetails || paymentDetailsSent}
                     className="w-full bg-[#622DBF] hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-md font-medium transition-all font-montserrat"
@@ -1050,7 +1073,7 @@ export default function AdminRight() {
               {/* Bank Details Section - Show after UPI verification */}
               <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
                 <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">Send Bank Details for Main Transfer</h3>
-                
+
                 {!paymentDetailsSent && (
                   <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md mb-4">
                     <div className="flex items-center space-x-2">
@@ -1061,7 +1084,7 @@ export default function AdminRight() {
                     </div>
                   </div>
                 )}
-                
+
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center space-x-2 mb-2">
@@ -1070,10 +1093,9 @@ export default function AdminRight() {
                     <input
                       type="text"
                       value={adminBankDetails.accountNumber}
-                      onChange={(e) => setAdminBankDetails({...adminBankDetails, accountNumber: e.target.value})}
-                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
-                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
-                      }`}
+                      onChange={(e) => setAdminBankDetails({ ...adminBankDetails, accountNumber: e.target.value })}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                        }`}
                       placeholder="Enter account number"
                       disabled={!paymentDetailsSent}
                     />
@@ -1086,10 +1108,9 @@ export default function AdminRight() {
                     <input
                       type="text"
                       value={adminBankDetails.ifscCode}
-                      onChange={(e) => setAdminBankDetails({...adminBankDetails, ifscCode: e.target.value})}
-                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
-                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
-                      }`}
+                      onChange={(e) => setAdminBankDetails({ ...adminBankDetails, ifscCode: e.target.value })}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                        }`}
                       placeholder="Enter IFSC code"
                       disabled={!paymentDetailsSent}
                     />
@@ -1102,10 +1123,9 @@ export default function AdminRight() {
                     <input
                       type="text"
                       value={adminBankDetails.branchName}
-                      onChange={(e) => setAdminBankDetails({...adminBankDetails, branchName: e.target.value})}
-                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
-                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
-                      }`}
+                      onChange={(e) => setAdminBankDetails({ ...adminBankDetails, branchName: e.target.value })}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                        }`}
                       placeholder="Enter branch name"
                       disabled={!paymentDetailsSent}
                     />
@@ -1118,10 +1138,9 @@ export default function AdminRight() {
                     <input
                       type="text"
                       value={adminBankDetails.accountHolderName}
-                      onChange={(e) => setAdminBankDetails({...adminBankDetails, accountHolderName: e.target.value})}
-                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${
-                        paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
-                      }`}
+                      onChange={(e) => setAdminBankDetails({ ...adminBankDetails, accountHolderName: e.target.value })}
+                      className={`w-full border border-gray-600/50 rounded-md py-2 px-4 text-white placeholder-gray-400 focus:outline-none focus:border-[#622DBF] focus:ring-1 focus:ring-purple-500/20 font-montserrat ${paymentDetailsSent ? 'bg-[#1E1C1C]' : 'bg-[#2a2a2a] opacity-50'
+                        }`}
                       placeholder="Enter account holder name"
                       disabled={!paymentDetailsSent}
                     />
@@ -1142,7 +1161,7 @@ export default function AdminRight() {
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={handleSendBankDetails}
                     disabled={!adminBankDetails.accountNumber || !adminBankDetails.ifscCode || !adminBankDetails.branchName || !adminBankDetails.accountHolderName || !paymentDetailsSent || sendingBankDetails}
                     className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-md font-medium transition-all font-montserrat"
@@ -1215,90 +1234,90 @@ export default function AdminRight() {
             </div>
           </motion.div>
         )}
-         {selectedOrder && (
-            <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
-              <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">
-                Uploaded Payment Receipts
-              </h3>
-              
-              {uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id] || selectedOrder.paymentProof ? (
-                <div className="space-y-3">
-                  {/* Receipt from state (newly uploaded) */}
-                  {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id]) && (
-                    <motion.div
-                      className="bg-[#1E1C1C] border border-gray-600/50 rounded-lg p-4"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="w-5 h-5 text-purple-400" />
-                          <div>
-                            <div className="text-white font-medium font-montserrat">
-                              {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id])?.fileName || 'Payment Receipt'}
-                            </div>
-                            <div className="text-xs text-gray-400 font-montserrat">
-                              Uploaded: {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id])?.uploadedAt?.toLocaleString() || 'Just now'}
-                            </div>
+        {selectedOrder && (
+          <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
+            <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">
+              Uploaded Payment Receipts
+            </h3>
+
+            {uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id] || selectedOrder.paymentProof ? (
+              <div className="space-y-3">
+                {/* Receipt from state (newly uploaded) */}
+                {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id]) && (
+                  <motion.div
+                    className="bg-[#1E1C1C] border border-gray-600/50 rounded-lg p-4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="w-5 h-5 text-purple-400" />
+                        <div>
+                          <div className="text-white font-medium font-montserrat">
+                            {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id])?.fileName || 'Payment Receipt'}
+                          </div>
+                          <div className="text-xs text-gray-400 font-montserrat">
+                            Uploaded: {(uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id])?.uploadedAt?.toLocaleString() || 'Just now'}
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            const receipt = uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id];
-                            if (receipt) {
-                              handleViewReceipt(receipt.fileUrl, receipt.fileName);
-                            }
-                          }}
-                          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all font-montserrat"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <FileText className="w-4 h-4" />
-                            <span>View PDF</span>
-                          </div>
-                        </button>
                       </div>
-                    </motion.div>
-                  )}
-               
-                  {selectedOrder.paymentProof && !uploadedReceipts[selectedOrder.fullId] && !uploadedReceipts[selectedOrder.id] && (
-                    <div className="bg-[#1E1C1C] border border-gray-600/50 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="w-5 h-5 text-green-400" />
-                          <div>
-                            <div className="text-white font-medium font-montserrat">
-                              Payment Receipt (Existing)
-                            </div>
-                            <div className="text-xs text-gray-400 font-montserrat">
-                              Previously uploaded
-                            </div>
-                          </div>
+                      <button
+                        onClick={() => {
+                          const receipt = uploadedReceipts[selectedOrder.fullId] || uploadedReceipts[selectedOrder.id];
+                          if (receipt) {
+                            handleViewReceipt(receipt.fileUrl, receipt.fileName);
+                          }
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all font-montserrat"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <FileText className="w-4 h-4" />
+                          <span>View PDF</span>
                         </div>
-                        <button
-                          onClick={() => handleViewReceipt(selectedOrder.paymentProof!, 'payment-receipt.pdf')}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-all font-montserrat"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <FileText className="w-4 h-4" />
-                            <span>View PDF</span>
-                          </div>
-                        </button>
-                      </div>
+                      </button>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-400 font-montserrat">No payment receipts uploaded yet</p>
-                  <p className="text-gray-500 text-sm font-montserrat">
-                    User will upload payment receipt after making the transfer
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+                  </motion.div>
+                )}
+
+                {selectedOrder.paymentProof && !uploadedReceipts[selectedOrder.fullId] && !uploadedReceipts[selectedOrder.id] && (
+                  <div className="bg-[#1E1C1C] border border-gray-600/50 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="w-5 h-5 text-green-400" />
+                        <div>
+                          <div className="text-white font-medium font-montserrat">
+                            Payment Receipt (Existing)
+                          </div>
+                          <div className="text-xs text-gray-400 font-montserrat">
+                            Previously uploaded
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleViewReceipt(selectedOrder.paymentProof!, 'payment-receipt.pdf')}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-all font-montserrat"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <FileText className="w-4 h-4" />
+                          <span>View PDF</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-400 font-montserrat">No payment receipts uploaded yet</p>
+                <p className="text-gray-500 text-sm font-montserrat">
+                  User will upload payment receipt after making the transfer
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </AnimatePresence>
     </div>
   )
