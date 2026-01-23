@@ -207,6 +207,111 @@ export default function BuySellSection() {
     }
   };
 
+  /**
+   * Wait for transaction confirmation with retry logic
+   * @param txHash - Transaction hash to wait for
+   * @param maxRetries - Maximum number of retries (default: 3)
+   * @param retryDelay - Delay between retries in ms (default: 5000)
+   * @returns true if confirmed, false if failed
+   */
+  const waitForTransactionConfirmation = async (
+    txHash: string,
+    maxRetries: number = 3,
+    retryDelay: number = 5000
+  ): Promise<boolean> => {
+    if (!publicClient) {
+      console.error('❌ Public client not available');
+      return false;
+    }
+
+    console.log(`⏳ Waiting for transaction confirmation: ${txHash}`);
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Confirmation attempt ${attempt}/${maxRetries}...`);
+
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash: txHash as `0x${string}`,
+          timeout: 30000, // 30 second timeout per attempt
+        });
+
+        if (receipt.status === 'success') {
+          console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
+          return true;
+        } else {
+          console.error(`❌ Transaction failed with status: ${receipt.status}`);
+          return false;
+        }
+      } catch (error) {
+        console.error(`⚠️ Confirmation attempt ${attempt} failed:`, error);
+
+        if (attempt < maxRetries) {
+          console.log(`⏳ Retrying in ${retryDelay / 1000} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } else {
+          console.error(`❌ Transaction confirmation failed after ${maxRetries} attempts`);
+          return false;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  /**
+   * Create database order with retry logic
+   * @param orderPayload - Order data to send to API
+   * @param maxRetries - Maximum number of retries (default: 3)
+   * @returns Order data if successful, throws error if failed
+   */
+  const createDatabaseOrderWithRetry = async (
+    orderPayload: any,
+    maxRetries: number = 3
+  ): Promise<any> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`📝 Database order creation attempt ${attempt}/${maxRetries}...`);
+
+        const dbResponse = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderPayload),
+        });
+
+        if (!dbResponse.ok) {
+          const errorText = await dbResponse.text();
+          throw new Error(
+            `Database API error: ${dbResponse.status} - ${errorText}`
+          );
+        }
+
+        const data = await dbResponse.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to create database order');
+        }
+
+        console.log(`✅ Database order created successfully on attempt ${attempt}`);
+        return data.order;
+      } catch (error) {
+        console.error(`❌ Database order creation attempt ${attempt} failed:`, error);
+
+        if (attempt < maxRetries) {
+          const retryDelay = 2000 * attempt; // Exponential backoff: 2s, 4s, 6s
+          console.log(`⏳ Retrying in ${retryDelay / 1000} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } else {
+          console.error(`❌ Database order creation failed after ${maxRetries} attempts`);
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('Database order creation failed after all retries');
+  };
+
   // Wallet and orders data
   const {
     address: eoaAddress,
@@ -218,8 +323,10 @@ export default function BuySellSection() {
     approveUSDT,
   } = useWalletManager();
 
-  // Prioritize smart wallet address for database orders
-  const address = walletData?.smartWallet?.address || eoaAddress;
+  // CRITICAL: Only use smart wallet address for orders - no EOA fallback
+  // This ensures orders are always created with the correct smart wallet address
+  const address = walletData?.smartWallet?.address;
+  const isSmartWalletReady = !!address;
 
   const {
     orders,
@@ -465,13 +572,19 @@ export default function BuySellSection() {
 
       console.log('✅ Gasless USDT transfer successful:', txHash);
 
-      // Wait for transaction confirmation
+      // Wait for transaction confirmation with retry logic
       console.log('⏳ Waiting for transaction confirmation...');
-      await new Promise((resolve) => setTimeout(resolve, 8000));
+      const isConfirmed = await waitForTransactionConfirmation(txHash);
 
-      console.log('📝 Creating database order after successful USDT transfer...');
+      if (!isConfirmed) {
+        throw new Error(
+          'Transaction confirmation failed. Your USDT transfer may still be pending. Please check BscScan and contact support if needed.'
+        );
+      }
 
-      // Create database order
+      console.log('📝 Creating database order after confirmed USDT transfer...');
+
+      // Create database order with retry logic
       const orderPayload = {
         walletAddress: address,
         orderType: orderType,
@@ -486,30 +599,7 @@ export default function BuySellSection() {
         linkedEoaAddress: eoaAddress, // Link Smart Wallet to EOA user
       };
 
-      const dbResponse = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderPayload),
-      });
-
-      if (!dbResponse.ok) {
-        const errorText = await dbResponse.text();
-        console.error('❌ Database API response error:', errorText);
-        throw new Error(
-          `Database API error: ${dbResponse.status} - ${errorText}`
-        );
-      }
-
-      const data = await dbResponse.json();
-
-      if (!data.success) {
-        console.error('❌ Database order creation failed:', data.error);
-        throw new Error(data.error || 'Failed to create database order');
-      }
-
-      const databaseOrder = data.order;
+      const databaseOrder = await createDatabaseOrderWithRetry(orderPayload);
       console.log('✅ Sell order created - USDT transferred to admin via gasless transaction');
 
       await Promise.all([refetchOrders(), refetchBalances()]);
@@ -638,11 +728,19 @@ export default function BuySellSection() {
   const handleBuySellClick = async () => {
     if (!isConnected || !amount || parseFloat(amount) <= 0) return;
 
+    // CRITICAL: Check if smart wallet is ready before creating orders
+    if (!isSmartWalletReady) {
+      alert('Please wait for your smart wallet to initialize before creating orders.');
+      console.log('⏳ Smart wallet not ready yet, please wait...');
+      return;
+    }
+
     console.log("🎯 Handle buy/sell click:", {
       activeTab,
       paymentMethod,
       hasBankDetails: !!bankDetails,
       walletAddress: address,
+      isSmartWalletReady,
     });
 
     // Calculate USDT amount for validation
@@ -740,6 +838,7 @@ export default function BuySellSection() {
   // Update the button disabled condition to include validation
   const isButtonDisabled =
     !isConnected ||
+    !isSmartWalletReady ||
     isPlacingOrder ||
     !amount ||
     parseFloat(amount) <= 0 ||
