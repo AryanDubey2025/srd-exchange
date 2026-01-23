@@ -1233,8 +1233,8 @@ export default function AdminCenter() {
               <div
                 key={order.fullId}
                 className={`rounded-md py-2 px-2 cursor-pointer transition-all duration-200 ${selectedOrderIndex === index
-                    ? "bg-gradient-to-r from-purple-600/30 to-purple-500/20 border-2 border-purple-500 shadow-lg shadow-purple-500/20"
-                    : "bg-[#1D1C1C] border-2 border-transparent hover:bg-[#2A2A2A] hover:border-purple-500/30"
+                  ? "bg-gradient-to-r from-purple-600/30 to-purple-500/20 border-2 border-purple-500 shadow-lg shadow-purple-500/20"
+                  : "bg-[#1D1C1C] border-2 border-transparent hover:bg-[#2A2A2A] hover:border-purple-500/30"
                   }`}
                 onClick={() => handleOrderClick(order, index)}
               >
@@ -1318,37 +1318,28 @@ export default function AdminCenter() {
                   <div>
                     <span
                       className={`text-md font-medium ${selectedOrderIndex === index
-                          ? "text-white"
-                          : "text-white"
+                        ? "text-white"
+                        : "text-white"
                         }`}
                     >
                       {order.id}
                     </span>
                     <div
                       className={`text-xs ${selectedOrderIndex === index
-                          ? "text-purple-200"
-                          : "text-white"
+                        ? "text-purple-200"
+                        : "text-white"
                         }`}
                     >
                       {order.time}
                     </div>
                     <div
                       className={`text-xs mt-1 ${selectedOrderIndex === index
-                          ? "text-purple-300"
-                          : "text-gray-400"
+                        ? "text-purple-300"
+                        : "text-gray-400"
                         }`}
                     >
                       {order.user.smartWalletAddress ? (
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-500">SW:</span>
-                            <span>{order.user.smartWalletAddress.slice(0, 6)}...{order.user.smartWalletAddress.slice(-4)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-500">EOA:</span>
-                            <span>{order.user.walletAddress.slice(0, 6)}...{order.user.walletAddress.slice(-4)}</span>
-                          </div>
-                        </div>
+                        <span>{order.user.smartWalletAddress.slice(0, 6)}...{order.user.smartWalletAddress.slice(-4)}</span>
                       ) : (
                         <span>
                           {order.user.walletAddress.slice(0, 6)}...
@@ -1360,14 +1351,14 @@ export default function AdminCenter() {
 
                   <div
                     className={`flex items-center space-x-2 border py-0.5 px-0.5 rounded ${selectedOrderIndex === index
-                        ? "border-purple-400/50"
-                        : "border-[#464646]"
+                      ? "border-purple-400/50"
+                      : "border-[#464646]"
                       }`}
                   >
                     <span
                       className={`font-bold py-0.5 px-1.5 rounded-sm ${selectedOrderIndex === index
-                          ? "bg-purple-800/30 text-white"
-                          : "bg-[#222] text-white"
+                        ? "bg-purple-800/30 text-white"
+                        : "bg-[#222] text-white"
                         }`}
                     >
                       {primaryAmount}
@@ -1384,8 +1375,8 @@ export default function AdminCenter() {
                       />
                       <span
                         className={`text-sm ${selectedOrderIndex === index
-                            ? "text-purple-200"
-                            : "text-gray-400"
+                          ? "text-purple-200"
+                          : "text-gray-400"
                           }`}
                       >
                         {order.type}
@@ -1393,8 +1384,8 @@ export default function AdminCenter() {
                     </div>
                     <span
                       className={`font-bold py-0.5 px-1.5 rounded-sm ${selectedOrderIndex === index
-                          ? "bg-purple-800/30 text-white"
-                          : "bg-[#222] text-white"
+                        ? "bg-purple-800/30 text-white"
+                        : "bg-[#222] text-white"
                         }`}
                     >
                       {secondaryAmount}
@@ -1421,8 +1412,8 @@ export default function AdminCenter() {
                     )}
                     <span
                       className={`text-sm ${selectedOrderIndex === index
-                          ? "text-white font-medium"
-                          : "text-white"
+                        ? "text-white font-medium"
+                        : "text-white"
                         }`}
                     >
                       {order.currency}
@@ -1433,8 +1424,8 @@ export default function AdminCenter() {
                 <div className="text-center mb-2">
                   <span
                     className={`text-xs ${selectedOrderIndex === index
-                        ? "text-purple-300"
-                        : "text-gray-500"
+                      ? "text-purple-300"
+                      : "text-gray-500"
                       }`}
                   >
                     Rate: {rateDisplay}
