@@ -912,6 +912,8 @@ export default function BuySellSection() {
         // Set current order for modal
         setCurrentOrder(order);
 
+        console.log("🛠️ Opening modal for order type:", activeTab, paymentMethod, order.id);
+
         // Save initial modal state and open appropriate modal
         if (activeTab === "buy" && paymentMethod === "cdm") {
           saveModalState(order.fullId || order.id, "BUY_CDM", 0, {}, null);
@@ -923,8 +925,13 @@ export default function BuySellSection() {
           saveModalState(order.fullId || order.id, "SELL_UPI", 0, {}, null);
           setShowSellUPIModal(true);
         } else if (activeTab === "sell" && paymentMethod === "cdm") {
-          saveModalState(order.fullId || order.id, "SELL_CDM", 0, {}, null);
-          setShowSellCDMModal(true);
+          if (order.id || order.fullId) {
+            saveModalState(order.fullId || order.id, "SELL_CDM", 0, {}, null);
+            setShowSellCDMModal(true);
+          } else {
+            console.error("❌ Critical: Created SELL_CDM order but ID is missing!", order);
+            alert("Order created but ID missing. Please refresh.");
+          }
         }
 
         // Reset form
