@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Shield, AlertTriangle, CheckCircle2, Wallet } from 'lucide-react'
-import Image from 'next/image'
+import { Shield, AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 declare global {
   interface Window {
@@ -149,8 +148,6 @@ export default function AdminLoginPage() {
               <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask" className="w-6 h-6" />
               Connect with MetaMask
             </>
-          ) : step === 'success' ? (
-            <CheckCircle2 className="w-5 h-5" />
           ) : (
             <>
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -161,7 +158,7 @@ export default function AdminLoginPage() {
 
         {/* Steps indicator */}
         <AnimatePresence>
-          {step !== 'idle' && step !== 'success' && (
+          {step !== 'idle' && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}

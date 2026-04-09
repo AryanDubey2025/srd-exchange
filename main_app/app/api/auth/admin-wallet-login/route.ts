@@ -39,10 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Admin whitelist — same source of truth as wallet-auth
     const ADMIN_WALLETS = [
-      '0x68921410bd83A958e45Cf18e83fAecfDFcB80C3a',
-      '0xa50098b44BFA6f695bE6E8d7dfb4A3dBE0a1A3f8',
       '0x16071780eAAa5E5Ac7A31ca2485026Eb24071662',
-      '0x22191B5E7B2d6369aef82858C5b3B789AcA4028A',
     ]
     const isWhitelisted = ADMIN_WALLETS.some(w => w.toLowerCase() === address.toLowerCase())
 
