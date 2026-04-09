@@ -37,23 +37,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message expired. Please try again.' }, { status: 401 })
     }
 
-    // Check DB for ADMIN role
-    const user = await prisma.user.findUnique({
-      where: { walletAddress: address.toLowerCase() },
-    })
+    // Admin whitelist — same source of truth as wallet-auth
+    const ADMIN_WALLETS = [
+      '0x68921410bd83A958e45Cf18e83fAecfDFcB80C3a',
+      '0xa50098b44BFA6f695bE6E8d7dfb4A3dBE0a1A3f8',
+      '0x16071780eAAa5E5Ac7A31ca2485026Eb24071662',
+      '0x22191B5E7B2d6369aef82858C5b3B789AcA4028A',
+    ]
+    const isWhitelisted = ADMIN_WALLETS.some(w => w.toLowerCase() === address.toLowerCase())
 
-    if (!user) {
-      return NextResponse.json({ error: 'Wallet not registered. Contact system administrator.' }, { status: 403 })
-    }
-
-    if (user.role !== 'ADMIN') {
+    if (!isWhitelisted) {
       return NextResponse.json({ error: 'Access denied: This wallet does not have admin privileges.' }, { status: 403 })
     }
 
-    // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+    // Upsert the admin user — creates the record on first login if it doesn't exist yet
+    const user = await prisma.user.upsert({
+      where: { walletAddress: address.toLowerCase() },
+      update: { lastLoginAt: new Date(), role: 'ADMIN' },
+      create: {
+        walletAddress: address.toLowerCase(),
+        role: 'ADMIN',
+        profileCompleted: true,
+        lastLoginAt: new Date(),
+      },
     })
 
     // Create session token and set httpOnly cookie

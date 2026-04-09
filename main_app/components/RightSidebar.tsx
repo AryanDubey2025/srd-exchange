@@ -13,12 +13,12 @@ import {
     ChevronDown,
     LogOut,
     RefreshCw,
-    Clock,
+    FileClock,
 } from 'lucide-react'
 import { FC, useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import Image from 'next/image'
-import { useSmartAccount, useDisconnect } from '@particle-network/connectkit'
+import { useSmartAccount, useDisconnect, useSwitchChain } from '@particle-network/connectkit'
 import { particleAuth } from '@particle-network/auth-core'
 import { parseUnits, erc20Abi } from 'viem'
 import { ethers } from 'ethers'
@@ -38,7 +38,7 @@ interface RightSidebarProps {
     } | null
 }
 
-const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, smartWalletAddress, solanaAddress, userBalances }) => {
+const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, smartWalletAddress, solanaAddress }) => {
     const [currentView, setCurrentView] = useState<'Main' | 'Send' | 'Receive'>('Main')
     const [copyStatus, setCopyStatus] = useState(false)
     const [sendAmount, setSendAmount] = useState('')
@@ -52,6 +52,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, smartWalletAddre
     const [isHistoryLoading, setIsHistoryLoading] = useState(false)
     const [showDisconnect, setShowDisconnect] = useState(false)
     const [selectedChainId, setSelectedChainId] = useState(56)
+    const [isSwitchingChain, setIsSwitchingChain] = useState(false)
     const [showChainDropdown, setShowChainDropdown] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
     const [historyChainFilter, setHistoryChainFilter] = useState<number | 'all'>('all')
@@ -70,6 +71,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
     const isSmartWalletDeployed = !!smartWalletAddress
     const smartAccount = useSmartAccount()
     const { disconnect } = useDisconnect()
+    const { switchChainAsync } = useSwitchChain()
     const router = useRouter()
 
     const selectedChain = CHAIN_CONFIGS.find(c => c.id === selectedChainId) ?? CHAIN_CONFIGS[1]
@@ -160,10 +162,16 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
         let toPubkey: InstanceType<typeof PublicKey>;
         try { toPubkey = new PublicKey(recipient); } catch { throw new Error('Invalid Solana address'); }
 
-        const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+        const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+        const connection = new Connection(
+            `https://solana-mainnet.g.alchemy.com/v2/${alchemyKey}`,
+            'confirmed'
+        );
         const fromPubkey = new PublicKey(solanaAddress);
         const { blockhash } = await connection.getLatestBlockhash();
-        const transaction = new Transaction({ recentBlockhash: blockhash, feePayer: fromPubkey });
+        const transaction = new Transaction();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = fromPubkey;
 
         if (asset.isNative) {
             // Native SOL transfer
@@ -171,8 +179,9 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
             transaction.add(SystemProgram.transfer({ fromPubkey, toPubkey, lamports }));
         } else {
             // SPL token transfer
-            const { getAssociatedTokenAddress, createTransferInstruction } =
-                await import('@solana/spl-token');
+            // @ts-ignore — spl-token ESM exports mismatch (types exist but not resolvable via package.json exports)
+            const splToken = await import('@solana/spl-token' as any);
+            const { getAssociatedTokenAddress, createTransferInstruction } = splToken;
             const mintPubkey = new PublicKey(asset.contractAddress);
             const rawAmount = BigInt(Math.round(amountNum * 10 ** asset.decimals));
             const fromAta = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
@@ -208,9 +217,9 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                 setRecipientAddress('')
             }
         } catch (err: any) {
+            console.error('[Send error]', err)
             let msg = err.message || 'Unknown error'
-            if (msg.includes('insufficient') || msg.includes('Insufficient')) msg = 'Insufficient balance.'
-            else if (msg.includes('timeout')) msg = 'Request timed out. Check your connection and try again.'
+            if (msg.includes('timeout')) msg = 'Request timed out. Check your connection and try again.'
             else if (msg.includes('rejected') || msg.includes('cancel')) msg = 'Transaction rejected or cancelled.'
             setSendError(msg)
         } finally {
@@ -292,17 +301,24 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                             {/* Chain selector — left of address */}
                             <div className="relative">
                                 <button
-                                    onClick={() => { setShowChainDropdown(p => !p); setShowDisconnect(false); }}
-                                    className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-full hover:bg-white/10 transition-colors"
+                                    onClick={() => { if (!isSwitchingChain) { setShowChainDropdown(p => !p); setShowDisconnect(false); } }}
+                                    className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-full hover:bg-white/10 transition-colors disabled:opacity-60"
+                                    disabled={isSwitchingChain}
                                 >
-                                    <img
-                                        src={selectedChain.logo}
-                                        alt={selectedChain.name}
-                                        className="w-4 h-4 rounded-full shrink-0 object-contain"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                                    />
-                                    <span className="text-white text-xs font-medium hidden sm:block">{selectedChain.name}</span>
-                                    <ChevronDown className={`w-3 h-3 text-white/40 transition-transform shrink-0 ${showChainDropdown ? 'rotate-180' : ''}`} />
+                                    {isSwitchingChain ? (
+                                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" />
+                                    ) : (
+                                        <img
+                                            src={selectedChain.logo}
+                                            alt={selectedChain.name}
+                                            className="w-4 h-4 rounded-full shrink-0 object-contain"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                                        />
+                                    )}
+                                    <span className="text-white text-xs font-medium hidden sm:block">
+                                        {isSwitchingChain ? 'Switching...' : selectedChain.name}
+                                    </span>
+                                    {!isSwitchingChain && <ChevronDown className={`w-3 h-3 text-white/40 transition-transform shrink-0 ${showChainDropdown ? 'rotate-180' : ''}`} />}
                                 </button>
 
                                 <AnimatePresence>
@@ -316,7 +332,32 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                                             {CHAIN_CONFIGS.map(chain => (
                                                 <button
                                                     key={chain.id}
-                                                    onClick={() => { setSelectedChainId(chain.id); setShowChainDropdown(false); }}
+                                                    onClick={async () => {
+    setShowChainDropdown(false);
+    setSelectedAsset(null);
+    setSelectedSolanaAsset(null);
+    setSendAmount('');
+    setRecipientAddress('');
+    if (chain.id === 101) {
+        // Solana — no EVM chain switch needed
+        setSendMode('SOL');
+        setReceiveMode('SOL');
+        setSelectedChainId(101);
+    } else {
+        setSendMode('EVM');
+        setReceiveMode('EVM');
+        setSelectedChainId(chain.id);
+        // Actually switch Particle's active chain so smartAccount uses the right bundler
+        try {
+            setIsSwitchingChain(true);
+            await switchChainAsync({ chainId: chain.id });
+        } catch (e) {
+            console.warn('Chain switch failed:', e);
+        } finally {
+            setIsSwitchingChain(false);
+        }
+    }
+}}
                                                     disabled={chain.id === 101 && !solanaAddress}
                                                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-colors text-left
                                                         ${selectedChainId === chain.id ? 'bg-white/10' : ''}
@@ -389,15 +430,14 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
         }
 
         return (
-            <div className="flex items-center bg-white/5 justify-between p-4">
+            <div className="relative flex items-center bg-white/5 px-4 py-4 shrink-0">
                 <button
                     onClick={() => setCurrentView('Main')}
-                    className="rounded-full transition-colors"
+                    className="absolute left-4 rounded-full transition-colors hover:bg-white/10 p-1"
                 >
                     <ArrowLeft className="w-6 h-6 text-white" />
                 </button>
-                <h2 className="text-white text-xl font-bold">{currentView}</h2>
-                <div className="w-10" /> {/* Spacer for centering */}
+                <h2 className="text-white text-xl font-bold mx-auto">{currentView}</h2>
             </div>
         )
     }
@@ -414,7 +454,11 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                         {(['EVM', 'SOL'] as const).map(mode => (
                             <button
                                 key={mode}
-                                onClick={() => setReceiveMode(mode)}
+                                onClick={() => {
+                                    setReceiveMode(mode);
+                                    if (mode === 'EVM' && selectedChainId === 101) setSelectedChainId(56);
+                                    if (mode === 'SOL') setSelectedChainId(101);
+                                }}
                                 disabled={mode === 'SOL' && !solanaAddress}
                                 className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${receiveMode === mode ? 'bg-[#6320EE] text-white' : 'text-white/40 hover:text-white/70'} disabled:opacity-30 disabled:cursor-not-allowed`}
                             >
@@ -447,11 +491,13 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                     </div>
                 </div>
 
-                {receiveMode === 'EVM' && (
-                    <p className="text-white/30 text-xs text-center -mt-2">
-                        All EVM-compatible tokens can be securely deposited into a smart wallet address
-                    </p>
-                )}
+                <p className="text-white/30 text-xs text-center -mt-2">
+                    {receiveMode === 'EVM' ? (
+                        <>All EVM-compatible <span className="text-yellow-400 font-medium">tokens</span> can be securely deposited into a smart wallet address</>
+                    ) : (
+                        <>All Solana-compatible <span className="text-yellow-400 font-medium">tokens</span> can be securely deposited into this address</>
+                    )}
+                </p>
 
                 {/* QR Code */}
                 <div className="p-5 bg-white rounded-3xl shadow-2xl">
@@ -503,7 +549,19 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                     {(['EVM', 'SOL'] as const).map(mode => (
                         <button
                             key={mode}
-                            onClick={() => { setSendMode(mode); setSendError(null); setTxHash(null); setSendAmount(''); setRecipientAddress('') }}
+                            onClick={() => {
+    setSendMode(mode);
+    setSendError(null);
+    setTxHash(null);
+    setSendAmount('');
+    setRecipientAddress('');
+    setSelectedAsset(null);
+    setSelectedSolanaAsset(null);
+    // Sync header chain: if switching to EVM while Solana is selected, reset to BNB
+    if (mode === 'EVM' && selectedChainId === 101) setSelectedChainId(56);
+    // If switching to SOL while an EVM chain is selected, set to Solana
+    if (mode === 'SOL') setSelectedChainId(101);
+}}
                             disabled={mode === 'SOL' && !solanaAddress}
                             className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${sendMode === mode ? 'bg-[#6320EE] text-white' : 'text-white/40 hover:text-white/70'} disabled:opacity-30 disabled:cursor-not-allowed`}
                         >
@@ -680,7 +738,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                     <>
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#9945FF]/30 bg-[#9945FF]/10 text-[#9945FF] text-xs font-bold w-fit">
                             <Info className="w-3.5 h-3.5" />
-                            Network fees paid by you in SOL
+                            Network fees are paid in SOL by the user
                         </div>
 
                         {/* Solana Asset selector */}
@@ -800,7 +858,16 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                     {selectedSolanaAsset && <span className="text-white/30 text-xs font-bold">{selectedSolanaAsset.symbol}</span>}
                                     <button
-                                        onClick={() => selectedSolanaAsset && setSendAmount(formatBalance(selectedSolanaAsset.balance, selectedSolanaAsset.decimals))}
+                                        onClick={() => {
+                                            if (!selectedSolanaAsset) return;
+                                            if (selectedSolanaAsset.isNative) {
+                                                // Reserve 2x estimated fee (~0.00001 SOL) as buffer
+                                                const max = Math.max(0, parseFloat(formatBalance(selectedSolanaAsset.balance, selectedSolanaAsset.decimals)) - 0.00001);
+                                                setSendAmount(max > 0 ? max.toString() : '0');
+                                            } else {
+                                                setSendAmount(formatBalance(selectedSolanaAsset.balance, selectedSolanaAsset.decimals));
+                                            }
+                                        }}
                                         className="text-[#9945FF] font-bold text-sm hover:opacity-80"
                                     >Max</button>
                                 </div>
@@ -888,7 +955,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                                             className="absolute top-3 right-3 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-10"
                                             title="Transaction History"
                                         >
-                                            <Clock className="w-4 h-4 text-white/50" />
+                                            <FileClock className="w-4 h-4 text-white/50" />
                                         </button>
 
                                         <div className="relative z-10 flex flex-col gap-1">
@@ -1039,11 +1106,15 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                             className="fixed inset-y-0 right-0 w-full sm:w-[480px] h-[100dvh] bg-black shadow-2xl z-[202] flex flex-col overflow-hidden"
                         >
                             {/* Header */}
-                            <div className="flex items-center justify-between bg-white/5 px-4 py-3 shrink-0">
-                                <button onClick={() => setShowHistory(false)} className="rounded-full p-1 hover:bg-white/10 transition-colors">
+                            <div className="relative flex items-center bg-white/5 px-4 py-4 shrink-0">
+                                <button onClick={() => setShowHistory(false)} className="absolute left-4 rounded-full p-1 hover:bg-white/10 transition-colors">
                                     <ArrowLeft className="w-6 h-6 text-white" />
                                 </button>
-                                <h2 className="text-white text-xl font-bold">History</h2>
+                                <h2 className="text-white text-xl font-bold mx-auto">History</h2>
+                            </div>
+
+                            {/* Chain filter + Type filter tabs */}
+                            <div className="flex items-center justify-between px-4 py-2 shrink-0 border-b border-white/5">
                                 {/* Chain filter */}
                                 <div className="relative">
                                     <button
@@ -1065,7 +1136,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                                         <ChevronDown className={`w-3 h-3 text-white/40 transition-transform ${showHistoryChainDropdown ? 'rotate-180' : ''}`} />
                                     </button>
                                     {showHistoryChainDropdown && (
-                                        <div className="absolute top-full mt-1 right-0 w-44 bg-[#111] border border-white/10 rounded-xl overflow-hidden z-50 shadow-xl">
+                                        <div className="absolute top-full mt-1 left-0 w-44 bg-[#111] border border-white/10 rounded-xl overflow-hidden z-50 shadow-xl">
                                             <button
                                                 onClick={() => { setHistoryChainFilter('all'); setShowHistoryChainDropdown(false); }}
                                                 className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-white/5 transition-colors text-left ${historyChainFilter === 'all' ? 'text-white' : 'text-white/60'}`}
@@ -1087,19 +1158,19 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                                         </div>
                                     )}
                                 </div>
-                            </div>
 
-                            {/* Type filter tabs */}
-                            <div className="flex items-center gap-1 px-4 py-2 shrink-0 border-b border-white/5">
-                                {(['All', 'Deposit', 'Withdraw'] as const).map(tab => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setHistoryTypeFilter(tab)}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${historyTypeFilter === tab ? 'bg-[#6320EE] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
-                                    >
-                                        {tab}
-                                    </button>
-                                ))}
+                                {/* Type tabs */}
+                                <div className="flex items-center gap-1">
+                                    {(['All', 'Deposit', 'Withdraw'] as const).map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setHistoryTypeFilter(tab)}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${historyTypeFilter === tab ? 'bg-[#6320EE] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Body */}

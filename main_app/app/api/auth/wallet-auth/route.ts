@@ -155,12 +155,13 @@ function determineUserRole(walletAddress: string): 'USER' | 'ADMIN' {
   const adminWallets = [
     '0x68921410bd83A958e45Cf18e83fAecfDFcB80C3a',
     '0xa50098b44BFA6f695bE6E8d7dfb4A3dBE0a1A3f8',
+    '0x16071780eAAa5E5Ac7A31ca2485026Eb24071662',
+    '0x22191B5E7B2d6369aef82858C5b3B789AcA4028A',
   ]
 
   console.log(`Checking if ${walletAddress} is in admin wallets:`, adminWallets)
 
   const isAdmin = adminWallets.includes(walletAddress) || adminWallets.map(addr => addr.toLowerCase()).includes(walletAddress.toLowerCase())
   console.log(`Result: ${isAdmin ? 'ADMIN' : 'USER'}`)
-
   return isAdmin ? 'ADMIN' : 'USER'
 }
