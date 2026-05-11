@@ -1,10 +1,10 @@
 'use client'
-import { useState } from 'react'
 import Navbar from '@/components/navbar'
 import LandingPage from '@/components/landingPage'
 import FeatureBento from '@/components/feature-bento'
 import FAQ from '@/components/faq'
 import Footer from '@/components/footer'
+import QR from '@/components/qr'
 
 export default function Home() {
   return (
@@ -16,6 +16,9 @@ export default function Home() {
         </section>
         <section id="features">
           <FeatureBento/>
+        </section>
+        <section id="scan-pay" className="bg-black">
+          <QR />
         </section>
         <section id="faq">
           <FAQ/>

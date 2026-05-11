@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSignedUrl, extractS3KeyFromUrl } from '@/lib/aws/s3-upload';
+import { getSignedUrlForS3 as getSignedUrl, extractS3KeyFromUrl } from '@/lib/aws/s3-upload';
 
 export async function POST(request: NextRequest) {
   try {

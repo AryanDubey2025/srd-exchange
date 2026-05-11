@@ -41,8 +41,8 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json(
         {
           rates: defaultRates.map((rate) => ({
-            buyRate: rate.buyRate,
-            sellRate: rate.sellRate,
+            buyRate: Number(rate.buyRate),
+            sellRate: Number(rate.sellRate),
             currency: rate.currency,
             updatedAt: rate.updatedAt,
           })),
@@ -60,11 +60,11 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json(
       {
         rates: rates.map((rate) => ({
-          buyRate: rate.buyRate,
-          sellRate: rate.sellRate,
-          currency: rate.currency,
-          updatedAt: rate.updatedAt,
-        })),
+            buyRate: Number(rate.buyRate),
+            sellRate: Number(rate.sellRate),
+            currency: rate.currency,
+            updatedAt: rate.updatedAt,
+          })),
       },
       {
         headers: {

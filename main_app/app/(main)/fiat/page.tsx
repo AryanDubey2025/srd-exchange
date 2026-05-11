@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import React, { Suspense } from 'react';
 import Footer from '@/components/footer';
 import dynamic from 'next/dynamic';
+import QR from '@/components/qr';
 
 // Lazy load the heavy components
 const BuySellSection = dynamic(() => import('@/components/buysellSection'), {
@@ -75,8 +76,7 @@ export default function Dashboard() {
                     <SimpleNav />
                 </div>
                 <BuySellSection />
-                <Orders />
-           
+                <QR/>           
                 <div className='max-w-7xl mx-auto px-8 py-8'>
                     <Footer />
                 </div>

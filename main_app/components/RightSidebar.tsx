@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
     ArrowDownLeft,
     ArrowUpRight,
-    Flame,
     ExternalLink,
     ArrowLeft,
     Copy,
@@ -18,7 +17,7 @@ import {
 import { FC, useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import Image from 'next/image'
-import { useSmartAccount, useDisconnect, useSwitchChain } from '@particle-network/connectkit'
+import { useDisconnect, useSwitchChain, useWallets, usePublicClient } from '@particle-network/connectkit'
 import { particleAuth } from '@particle-network/auth-core'
 import { parseUnits, erc20Abi } from 'viem'
 import { ethers } from 'ethers'
@@ -30,7 +29,7 @@ import { CHAIN_CONFIGS, formatBalance, formatUsd, type TokenAsset } from '@/lib/
 interface RightSidebarProps {
     isOpen: boolean
     onClose: () => void
-    smartWalletAddress?: string | null
+    eoaAddress?: string | null
     solanaAddress?: string | null
     userBalances: {
         usdt: string
@@ -38,7 +37,7 @@ interface RightSidebarProps {
     } | null
 }
 
-const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, smartWalletAddress, solanaAddress }) => {
+const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, eoaAddress, solanaAddress }) => {
     const [currentView, setCurrentView] = useState<'Main' | 'Send' | 'Receive'>('Main')
     const [copyStatus, setCopyStatus] = useState(false)
     const [sendAmount, setSendAmount] = useState('')
@@ -66,17 +65,17 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
     const [showHistoryChainDropdown, setShowHistoryChainDropdown] = useState(false)
     const [historyTypeFilter, setHistoryTypeFilter] = useState<'All' | 'Deposit' | 'Withdraw'>('All')
 
-    // Show Solana address when Solana chain is selected, EVM smart wallet otherwise
-    const displayAddress = selectedChainId === 101 ? solanaAddress : smartWalletAddress
-    const isSmartWalletDeployed = !!smartWalletAddress
-    const smartAccount = useSmartAccount()
+    // Show Solana address when Solana chain is selected, EOA address otherwise
+    const displayAddress = selectedChainId === 101 ? solanaAddress : eoaAddress
+    const wallets = useWallets()
+    const primaryWallet = wallets[0]
     const { disconnect } = useDisconnect()
     const { switchChainAsync } = useSwitchChain()
     const router = useRouter()
 
     const selectedChain = CHAIN_CONFIGS.find(c => c.id === selectedChainId) ?? CHAIN_CONFIGS[1]
     const { assets, totalUsd, isLoading: assetsLoading, refetch: refetchAssets } = useChainAssets(
-        selectedChainId === 101 ? null : smartWalletAddress,
+        selectedChainId === 101 ? null : eoaAddress,
         selectedChainId,
         solanaAddress
     )
@@ -111,44 +110,38 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
         }
     }
 
-    const sendGaslessToken = async (
+    const sendEVMNormalToken = async (
         asset: TokenAsset,
         amount: string,
         recipient: string,
     ): Promise<string> => {
-        if (!smartAccount) throw new Error('Smart account not initialized');
         if (!ethers.isAddress(recipient)) throw new Error('Invalid recipient address');
         const amountNum = parseFloat(amount);
         if (isNaN(amountNum) || amountNum <= 0) throw new Error('Enter a valid amount');
 
-        let tx: { to: string; value: string; data: string };
+        if (!primaryWallet) throw new Error('Wallet not available');
+        const walletClient = await primaryWallet.getWalletClient();
+        if (!walletClient?.account) throw new Error('Wallet client not available');
 
         if (asset.isNative) {
-            const valueHex = '0x' + parseUnits(amount, asset.decimals).toString(16);
-            tx = { to: recipient, value: valueHex, data: '0x' };
+            const hash = await walletClient.sendTransaction({
+                to: recipient as `0x${string}`,
+                value: parseUnits(amount, asset.decimals),
+                account: walletClient.account,
+                chain: walletClient.chain,
+            });
+            return hash;
         } else {
-            const iface = new ethers.Interface(erc20Abi as any);
-            const data = iface.encodeFunctionData('transfer', [recipient, parseUnits(amount, asset.decimals)]);
-            tx = { to: asset.contractAddress, value: '0x0', data };
+            const hash = await walletClient.writeContract({
+                address: asset.contractAddress as `0x${string}`,
+                abi: erc20Abi,
+                functionName: 'transfer',
+                args: [recipient as `0x${string}`, parseUnits(amount, asset.decimals)],
+                account: walletClient.account,
+                chain: walletClient.chain,
+            } as any);
+            return hash;
         }
-
-        console.log(`🚀 Sending ${amount} ${asset.symbol} to ${recipient} (gasless)`);
-
-        const feeQuotesResult = await Promise.race([
-            smartAccount.getFeeQuotes(tx),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Fee quote timeout. Please try again.')), 30000)),
-        ]) as any;
-
-        const gaslessQuote = feeQuotesResult?.verifyingPaymasterGasless;
-        if (!gaslessQuote) throw new Error('Gasless transactions not available for this token/chain. Please try again.');
-
-        const hash = await smartAccount.sendUserOperation({
-            userOp: gaslessQuote.userOp,
-            userOpHash: gaslessQuote.userOpHash,
-        });
-
-        console.log('✅ Transaction hash:', hash);
-        return hash;
     };
 
     const sendSolanaAsset = async (asset: TokenAsset, recipient: string, amount: string): Promise<string> => {
@@ -203,11 +196,11 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
 
         try {
             if (sendMode === 'EVM') {
-                const hash = await sendGaslessToken(selectedAsset!, sendAmount, recipientAddress)
+                const hash = await sendEVMNormalToken(selectedAsset!, sendAmount, recipientAddress)
                 setTxHash(hash)
                 setSendAmount('')
                 setRecipientAddress('')
-                setTimeout(() => { if (smartWalletAddress) fetchOnChainHistory(smartWalletAddress) }, 5000)
+                setTimeout(() => { if (eoaAddress) fetchOnChainHistory(eoaAddress) }, 5000)
             } else {
                 // Solana
                 if (!selectedSolanaAsset) throw new Error('Select an asset to send')
@@ -248,12 +241,11 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
     }
 
     useEffect(() => {
-        // Always use smartWalletAddress for EVM history (same address on all chains)
-        if (isOpen && smartWalletAddress) {
-            console.log('🔄 Sidebar opened, fetching history for smart wallet:', smartWalletAddress)
-            fetchOnChainHistory(smartWalletAddress)
+        if (isOpen && eoaAddress) {
+            console.log('🔄 Sidebar opened, fetching history for EOA:', eoaAddress)
+            fetchOnChainHistory(eoaAddress)
         }
-    }, [isOpen, smartWalletAddress])
+    }, [isOpen, eoaAddress])
 
     useEffect(() => {
         const fetchRates = async () => {
@@ -400,7 +392,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                                     className={`flex items-center gap-1.5 bg-white/5 border px-2.5 py-1.5 rounded-full hover:bg-white/10 transition-colors min-w-0 ${showDisconnect ? 'border-white/20 bg-white/10' : 'border-white/10'}`}
                                 >
                                     <Image src="/srd_gen.svg" alt="User" width={18} height={18} className="shrink-0" />
-                                    <span className="text-white text-xs font-medium truncate">{formatAddress(displayAddress || "0x0000...0000")}</span>
+                                    <span className="text-white text-xs font-medium truncate">{displayAddress ? formatAddress(displayAddress) : <span className="text-white/40">Loading...</span>}</span>
                                     <ChevronDown className={`w-3 h-3 text-white/40 transition-transform shrink-0 ${showDisconnect ? 'rotate-180' : ''}`} />
                                 </button>
 
@@ -443,7 +435,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
     }
 
     const renderReceiveView = () => {
-        const receiveAddr = receiveMode === 'SOL' ? solanaAddress : smartWalletAddress
+        const receiveAddr = receiveMode === 'SOL' ? solanaAddress : eoaAddress
         return (
         <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="min-h-full flex flex-col items-center justify-center gap-6 px-6 pt-10 pb-28">
@@ -493,7 +485,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
 
                 <p className="text-white/30 text-xs text-center -mt-2">
                     {receiveMode === 'EVM' ? (
-                        <>All EVM-compatible <span className="text-yellow-400 font-medium">tokens</span> can be securely deposited into a smart wallet address</>
+                        <>All EVM-compatible <span className="text-yellow-400 font-medium">tokens</span> can be securely deposited into this address</>
                     ) : (
                         <>All Solana-compatible <span className="text-yellow-400 font-medium">tokens</span> can be securely deposited into this address</>
                     )}
@@ -507,7 +499,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                 {/* Address Box */}
                 <div className="w-full space-y-2">
                     <p className="text-gray-500 text-sm font-medium text-center">
-                        Your {receiveMode === 'SOL' ? 'Solana' : 'Smart Wallet'} Address
+                        Your {receiveMode === 'SOL' ? 'Solana' : 'Wallet'} Address
                     </p>
                     <div
                         onClick={() => copyToClipboard(receiveAddr || '')}
@@ -524,14 +516,7 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                             )}
                         </div>
                     </div>
-                    {receiveMode === 'EVM' && !isSmartWalletDeployed && smartWalletAddress && (
-                        <div className="w-full p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex gap-2">
-                            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                            <p className="text-blue-400 text-xs leading-tight">
-                                Smart wallet activates on your first transaction.
-                            </p>
-                        </div>
-                    )}
+
                 </div>
 
             </div>
@@ -597,12 +582,6 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
 
                 {sendMode === 'EVM' ? (
                     <>
-                        {/* Gasless badge */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-green-500/30 bg-green-500/10 text-[#00FF5E] text-xs font-bold w-fit">
-                            <Flame className="w-3.5 h-3.5 fill-current" />
-                            Gasless · All EVM Chains
-                        </div>
-
                         {/* Asset selector */}
                         <div className="space-y-2">
                             <label className="text-white font-semibold block text-sm">Asset <span className="text-white/30 font-normal">({selectedChain.name})</span></label>
@@ -1001,14 +980,6 @@ const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
                                             </div>
                                             Send
                                         </button>
-                                    </div>
-
-                                    {/* Gasless Badge */}
-                                    <div className="flex justify-center">
-                                        <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-green-500/30 bg-green-500/10 text-[#00FF5E] text-xs font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(0,255,94,0.1)]">
-                                            <Flame className="w-4 h-4 fill-current" />
-                                            Gasless Transaction
-                                        </div>
                                     </div>
 
                                     <hr className="border-white/5" />

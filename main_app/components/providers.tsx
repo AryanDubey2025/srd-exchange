@@ -56,39 +56,20 @@ function SidebarWrapper({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, [isConnected]);
 
-  // Save smart wallet + solana addresses to DB once both are resolved
-  const smartAddress = walletData?.smartWallet?.address;
+  // Save solana address to DB when resolved
   useEffect(() => {
-    if (!eoaAddress || !smartAddress || !solanaAddress) return;
+    if (!eoaAddress || !solanaAddress) return;
     fetch('/api/auth/update-addresses', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         walletAddress: eoaAddress,
-        smartWalletAddress: smartAddress,
         solanaAddress,
       }),
     }).catch(() => {});
-  }, [eoaAddress, smartAddress, solanaAddress]);
+  }, [eoaAddress, solanaAddress]);
 
-  // Always use smart wallet address - no EOA fallback
-  const displayUsdtBalance = walletData?.smartWallet?.usdtBalance || "0";
-
-  // Wait for smart wallet address to be computed
-  if (isSidebarOpen && !smartAddress) {
-    return (
-      <>
-        {children}
-        <RightSidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          smartWalletAddress={smartAddress}
-          solanaAddress={solanaAddress}
-          userBalances={null}
-        />
-      </>
-    );
-  }
+  const displayUsdtBalance = walletData?.balances?.usdt?.formatted || "0";
 
   return (
     <>
@@ -96,7 +77,7 @@ function SidebarWrapper({ children }: { children: ReactNode }) {
       <RightSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        smartWalletAddress={smartAddress}
+        eoaAddress={eoaAddress}
         solanaAddress={solanaAddress}
         userBalances={{
           usdt: displayUsdtBalance,

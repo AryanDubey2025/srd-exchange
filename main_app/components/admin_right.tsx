@@ -23,13 +23,13 @@ interface SelectedOrder {
   user: {
     id: string;
     walletAddress: string;
-    smartWalletAddress?: string | null;
     upiId: string | null;
     bankDetails: any;
   };
 }
 
 export default function AdminRight() {
+  const QR_SCAN_PAY_FLAG_KEY = 'qr_scan_pay_enabled'
   const [activeTab, setActiveTab] = useState('UPI')
   const [userDetailsTab, setUserDetailsTab] = useState('UPI')
   const [newBuyRate, setNewBuyRate] = useState('')
@@ -46,6 +46,9 @@ export default function AdminRight() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [sendingPaymentDetails, setSendingPaymentDetails] = useState(false)
   const [paymentDetailsSent, setPaymentDetailsSent] = useState(false)
+  const [qrScanPayEnabled, setQrScanPayEnabled] = useState(false)
+  const [qrFeatureLoading, setQrFeatureLoading] = useState(true)
+  const [qrFeatureSaving, setQrFeatureSaving] = useState(false)
 
   // Custom order values
   const [customOrderValue, setCustomOrderValue] = useState('')
@@ -199,6 +202,23 @@ export default function AdminRight() {
     };
   }, [selectedOrder]); // Include selectedOrder in dependency array
 
+  useEffect(() => {
+    const loadQrFeatureFlag = async () => {
+      try {
+        setQrFeatureLoading(true)
+        const data = await makeAdminRequest('/api/admin/feature-flags')
+        const featureEnabled = Boolean(data?.featureFlag?.enabled)
+        setQrScanPayEnabled(featureEnabled)
+      } catch (error) {
+        console.error('Failed to load QR Scan & Pay feature flag:', error)
+      } finally {
+        setQrFeatureLoading(false)
+      }
+    }
+
+    loadQrFeatureFlag()
+  }, [makeAdminRequest])
+
   // 🔥 ADD: Clear notification when order changes
   useEffect(() => {
     // Clear notification when order selection changes
@@ -209,6 +229,33 @@ export default function AdminRight() {
   const dismissUserMoneyNotification = () => {
     setUserMoneyNotification(null);
   };
+
+  const handleToggleQrScanPay = async () => {
+    try {
+      setQrFeatureSaving(true)
+      const nextEnabled = !qrScanPayEnabled
+      const data = await makeAdminRequest('/api/admin/feature-flags', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          key: QR_SCAN_PAY_FLAG_KEY,
+          enabled: nextEnabled,
+        }),
+      })
+
+      const updatedEnabled = Boolean(data?.featureFlag?.enabled)
+      setQrScanPayEnabled(updatedEnabled)
+      window.dispatchEvent(
+        new CustomEvent('qrScanPayFeatureUpdated', {
+          detail: { enabled: updatedEnabled },
+        })
+      )
+    } catch (error) {
+      console.error('Failed to update QR Scan & Pay feature flag:', error)
+      alert('Failed to update Scan QR & Pay status. Please try again.')
+    } finally {
+      setQrFeatureSaving(false)
+    }
+  }
 
   const handleUpdatePrice = async () => {
     if (!newBuyRate || !newSellRate) {
@@ -441,6 +488,41 @@ export default function AdminRight() {
 
   return (
     <div className="bg-[#141414] text-white h-full py-4 px-2 space-y-6 overflow-y-auto font-montserrat">
+      <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
+        <div className="flex items-center justify-between gap-4 rounded-[1.1rem] border border-white/10 bg-[#0d0d14] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div>
+            <h2 className="text-[1.05rem] font-semibold text-white">Scan QR &amp; Pay</h2>
+            <p className="pt-1 text-xs text-gray-400">
+              User-side QR flow is currently {qrScanPayEnabled ? 'Online' : 'Offline'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleToggleQrScanPay}
+            disabled={qrFeatureLoading || qrFeatureSaving}
+            aria-pressed={qrScanPayEnabled}
+            aria-label={`Turn Scan QR and Pay ${qrScanPayEnabled ? 'off' : 'on'}`}
+            className={`relative flex h-[4.55rem] w-[10.6rem] items-center rounded-full border border-white/10 px-4 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9f67ff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#141414] disabled:cursor-not-allowed disabled:opacity-60 ${
+              qrScanPayEnabled
+                ? 'bg-[linear-gradient(90deg,#6d2de0_0%,#7b3ff1_55%,#5720bb_100%)]'
+                : 'bg-[linear-gradient(90deg,#1a1a22_0%,#232331_100%)]'
+            }`}
+          >
+            <span className="absolute left-6 text-[0.95rem] font-medium text-white/95">
+              {qrScanPayEnabled ? 'Online' : 'Offline'}
+            </span>
+            <span
+              className={`ml-auto flex h-[3.2rem] w-[3.2rem] items-center justify-center rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.32)] transition-transform duration-200 ${
+                qrScanPayEnabled
+                  ? 'translate-x-0 bg-[radial-gradient(circle_at_35%_35%,#d8c6ff_0%,#b998ff_42%,#8b59ff_100%)]'
+                  : '-translate-x-[3.55rem] bg-[radial-gradient(circle_at_35%_35%,#f1eaff_0%,#d1b9ff_42%,#9d76ff_100%)]'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
       {/* Rate Management Section */}
       <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
         {/* Tab Buttons */}
@@ -707,29 +789,6 @@ export default function AdminRight() {
           <div className="bg-[#101010] border border-[#3E3E3E] rounded-md p-4">
             <h3 className="text-lg font-semibold text-white mb-4 font-montserrat">User Info</h3>
             <div className="space-y-3">
-              {selectedOrder.user.smartWalletAddress ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <User className="w-5 h-5 text-white" />
-                    <span className="text-gray-400 text-sm font-montserrat">Wallet:</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white text-sm font-montserrat">
-                      {selectedOrder.user.smartWalletAddress.slice(0, 6)}...{selectedOrder.user.smartWalletAddress.slice(-4)}
-                    </span>
-                    <button
-                      onClick={() => handleCopy(selectedOrder.user.smartWalletAddress!, 'smartWallet')}
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      {copiedField === 'smartWallet' ? (
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <User className="w-5 h-5 text-white" />
@@ -748,7 +807,6 @@ export default function AdminRight() {
                     </button>
                   </div>
                 </div>
-              )}
             </div>
           </div>
 

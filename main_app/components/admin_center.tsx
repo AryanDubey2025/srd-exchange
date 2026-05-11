@@ -33,7 +33,6 @@ interface Order {
   user: {
     id: string;
     walletAddress: string;
-    smartWalletAddress?: string | null;
     upiId: string | null;
     bankDetails: any;
   };
@@ -874,6 +873,26 @@ export default function AdminCenter() {
       setOrderStatuses((prev) => {
         let newStatus: "waiting" | "completed" | undefined;
 
+        // Handle QR Scan & Pay orders (SELL_UPI with PENDING_ADMIN_PAYMENT)
+        if (order.orderType === "SELL_UPI" && order.status === "PENDING_ADMIN_PAYMENT") {
+          if (tag === "Send to Merchant") {
+            // Admin manually sends INR to merchant's UPI ID
+            alert(`Send ₹${order.amount} to merchant UPI: ${order.adminUpiId || "Not available"}\n\nAfter sending, click OK to mark as Payment Sent.`);
+            updateOrderStatus(order.fullId, "PAYMENT_SENT");
+            return {
+              ...prev,
+              [orderIndex]: { ...prev[orderIndex], [tag]: "completed" },
+            };
+          }
+          if (tag === "Payment Sent") {
+            updateOrderStatus(order.fullId, "COMPLETED");
+            return {
+              ...prev,
+              [orderIndex]: { ...prev[orderIndex], [tag]: "completed" },
+            };
+          }
+        }
+
         if (hasUserIcon(tag, orderIndex)) {
           if (!currentStatus) {
             newStatus = "waiting";
@@ -1012,11 +1031,11 @@ export default function AdminCenter() {
         "Complete",
       ];
     } else if (
-      order.orderType.includes("SELL") &&
+      order.orderType === "SELL_UPI" &&
       order.status === "PENDING_ADMIN_PAYMENT"
     ) {
-      // For sell orders where USDT is already received by admin
-      return ["USDT Received", "Send Payment", "Payment Sent", "Complete"];
+      // QR Scan & Pay orders: USDT already sent to admin, need to send INR to merchant UPI
+      return ["USDT Received", "Send to Merchant", "Payment Sent", "Complete"];
     } else if (order.orderType.includes("SELL")) {
       return ["Accepted", "Paid", "Verified", "Complete"];
     } else {
@@ -1287,6 +1306,36 @@ export default function AdminCenter() {
                   </div>
                 )}
 
+                {/* QR Scan Orders: Show Merchant UPI ID */}
+                {order.orderType === "SELL_UPI" && order.adminUpiId && (
+                  <div className="mb-3 p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <span className="text-blue-400 font-medium text-sm">
+                          📱 QR Scan & Pay Order
+                        </span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(order.adminUpiId || "");
+                          alert("UPI ID copied to clipboard!");
+                        }}
+                        className="text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 px-2 py-1 rounded transition-colors"
+                      >
+                        📋 Copy UPI
+                      </button>
+                    </div>
+                    <div className="text-xs text-blue-300 mb-1">
+                      <span className="font-medium">Merchant UPI ID:</span> {order.adminUpiId}
+                    </div>
+                    <div className="text-xs text-blue-200">
+                      USDT sent to admin • Admin sends ₹{order.amount} to this UPI
+                    </div>
+                  </div>
+                )}
+
                 {order.orderType.includes("SELL") &&
                   (userMoneyNotifications[order.fullId] || userMoneyNotifications[order.id]) && (
                     <div className="mb-3 p-3 bg-green-500/20 border border-green-500/50 rounded-lg">
@@ -1338,14 +1387,10 @@ export default function AdminCenter() {
                         : "text-gray-400"
                         }`}
                     >
-                      {order.user.smartWalletAddress ? (
-                        <span>{order.user.smartWalletAddress.slice(0, 6)}...{order.user.smartWalletAddress.slice(-4)}</span>
-                      ) : (
                         <span>
                           {order.user.walletAddress.slice(0, 6)}...
                           {order.user.walletAddress.slice(-4)}
                         </span>
-                      )}
                     </div>
                   </div>
 

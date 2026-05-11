@@ -8,20 +8,19 @@ datasource db {
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  walletAddress      String    @unique
-  smartWalletAddress String?   @unique
-  solanaAddress      String?   @unique
-  role               UserRole  @default(USER)
-  upiId              String?
-  profileCompleted   Boolean   @default(false)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                 String       @id @default(cuid())
+  walletAddress      String       @unique
+  role               UserRole     @default(USER)
   lastLoginAt        DateTime?
-
-  // Relations
-  orders      Order[]
-  bankDetails BankDetails?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  profileCompleted   Boolean      @default(false)
+  upiId              String?
+  smartWalletAddress String?      @unique
+  solanaAddress      String?      @unique
+  bankDetails        BankDetails?
+  orders             Order[]
+  qrTransactions     QRTransaction[]
 
   @@map("users")
 }
@@ -29,40 +28,40 @@ model User {
 model BankDetails {
   id                String   @id @default(cuid())
   userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountNumber     String
   ifscCode          String
   branchName        String
-  accountHolderName String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  accountHolderName String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("bank_details")
 }
 
 model Order {
   id                    String      @id @default(cuid())
-  userId                String
   blockchainOrderId     String?
-  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String
   amount                Decimal
-  usdtAmount            Decimal?
-  customAmount          Decimal?
   orderType             OrderType
   status                OrderStatus @default(PENDING)
   paymentProof          String?
   adminUpiId            String?
   adminBankDetails      String?
   adminNotes            String?
-  buyRate               Decimal?
-  sellRate              Decimal?
-  userConfirmedReceived Boolean     @default(false)
-  userConfirmedAt       DateTime?
-  isVerifiedOnChain     Boolean     @default(false)
-  isCompletedOnChain    Boolean     @default(false)
-  transactionHash       String?
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
+  buyRate               Decimal?
+  sellRate              Decimal?
+  usdtAmount            Decimal?
+  isCompletedOnChain    Boolean     @default(false)
+  isVerifiedOnChain     Boolean     @default(false)
+  transactionHash       String?
+  customAmount          Decimal?
+  userConfirmedAt       DateTime?
+  userConfirmedReceived Boolean     @default(false)
+  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("orders")
 }
@@ -95,14 +94,14 @@ enum OrderType {
 enum OrderStatus {
   PENDING
   ADMIN_APPROVED
-  ADMIN_SENT_PAYMENT_INFO
   PAYMENT_SUBMITTED
+  COMPLETED
+  CANCELLED
+  ADMIN_SENT_PAYMENT_INFO
   PAYMENT_VERIFIED
   USDT_TRANSFERRED
   USDT_RECEIVED_BY_ADMIN
   PENDING_ADMIN_PAYMENT
-  COMPLETED
-  CANCELLED
 }
 
 enum RateType {
@@ -112,4 +111,37 @@ enum RateType {
 enum CurrencyType {
   UPI
   CDM
+}
+
+model FeatureFlag {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+model QRTransaction {
+  id               String              @id @default(cuid())
+  userId           String
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amountINR        Decimal
+  amountUSDT       Decimal
+  fee              Decimal             @default(0)
+  transactionHash  String?             @unique
+  status           QRTransactionStatus @default(PENDING)
+  qrCodeData       String?
+  adminCompletedAt DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@map("qr_transactions")
+}
+
+enum QRTransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
 }

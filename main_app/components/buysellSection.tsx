@@ -1,8 +1,9 @@
 "use client";
 
-import { Copy, User, ExternalLink, RefreshCw } from "lucide-react";
+import { Copy, User, ExternalLink, RefreshCw, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import HistoryDrawer from "./HistoryDrawer";
 import { useWalletManager } from "@/hooks/useWalletManager";
 import { useUserOrders } from "@/hooks/useUserOrders";
 import { useRates } from "@/hooks/useRates";
@@ -13,22 +14,14 @@ import SellUPIModal from "./modal/sell-upi";
 import SellCDMModal from "./modal/sell-cdm";
 import BankDetailsModal, { BankDetailsData } from "./modal/bank-details-modal";
 import { useBankDetails } from "@/hooks/useBankDetails";
-import { config } from "@/lib/wagmi";
-import { parseUnits, formatUnits, erc20Abi } from "viem";
+import { parseUnits, formatUnits } from "viem";
+import { bsc } from "@particle-network/connectkit/chains";
 
 import {
   ConnectButton,
-  useAccount,
   usePublicClient,
-  useParticleAuth,
-  useSmartAccount,
   useWallets,
 } from "@particle-network/connectkit";
-import { AAWrapProvider, SendTransactionMode } from "@particle-network/aa"; // Only when using EIP1193Provider
-
-// Blockchain Utilities
-import { ethers, type Eip1193Provider } from "ethers";
-import { formatEther, parseEther, verifyMessage } from "viem";
 
 const CONTRACTS = {
   P2P_TRADING: {
@@ -69,7 +62,6 @@ export default function BuySellSection() {
   const SELL_CDM_MIN_USDT = 58.4112; // Approx ₹5,000 at 85.6 rate
   const SELL_CDM_MAX_USDT = 250;
 
-  const { chainId } = useAccount();
   const [activeTab, setActiveTab] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [amount, setAmount] = useState("");
@@ -82,9 +74,8 @@ export default function BuySellSection() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { getUserInfo } = useParticleAuth();
+  const [showHistory, setShowHistory] = useState(false);
   const publicClient = usePublicClient();
-  const smartAccount = useSmartAccount();
   const [primaryWallet] = useWallets();
 
   const { saveModalState } = useModalState();
@@ -94,113 +85,56 @@ export default function BuySellSection() {
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [needsGasStationApproval, setNeedsGasStationApproval] = useState<boolean>(false);
 
-  // Initialize ethers provider with gasless transaction mode
-  const customProvider = smartAccount
-    ? new ethers.BrowserProvider(
-      new AAWrapProvider(
-        smartAccount,
-        SendTransactionMode.Gasless
-      ) as Eip1193Provider,
-      "any"
-    )
-    : null;
+  const USDT_TRANSFER_ABI = [
+    "function transfer(address to, uint256 amount) returns (bool)",
+  ] as const;
 
-  const walletClient = primaryWallet?.getWalletClient();
-
-
-  /**
-   * Send USDT using Particle Network's gasless transaction feature
-   * @param recipientAddress - Address to send USDT to
-   * @param usdtAmount - Amount of USDT to send (as string)
-   * @param usdtDecimals - USDT token decimals
-   * @returns Transaction hash
-   */
-  const sendGaslessUSDT = async (
+  const sendUserPaidUSDT = async (
     recipientAddress: string,
     usdtAmount: string,
     usdtDecimals: number
   ): Promise<string> => {
-    if (!smartAccount) throw new Error('Smart account not initialized');
+    if (!address || !primaryWallet) throw new Error("Wallet not connected");
 
     try {
-      console.log(`🚀 Sending ${usdtAmount} USDT to ${recipientAddress} (gasless)`);
-
-      // Validate recipient address
-      if (!ethers.isAddress(recipientAddress)) {
-        throw new Error('Invalid recipient address format');
-      }
-
-      // Validate amount
-      const amount = parseFloat(usdtAmount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error('Please enter a valid USDT amount');
-      }
-
-      // Create contract interface for USDT transfer
-      const iface = new ethers.Interface(erc20Abi);
+      const walletClient = primaryWallet.getWalletClient();
       const parsedAmount = parseUnits(usdtAmount, usdtDecimals);
 
-      // Encode transfer function
-      const data = iface.encodeFunctionData('transfer', [
-        recipientAddress,
-        parsedAmount
-      ]);
+      console.log("💰 Sending USDT from EOA wallet:", {
+        from: address,
+        to: recipientAddress,
+        amount: usdtAmount,
+        parsedAmount: parsedAmount.toString(),
+      });
 
-      // Prepare transaction
-      const tx = {
-        to: CONTRACTS.USDT[56],
-        value: '0x0',
-        data: data,
-      };
-
-      console.log('📋 Getting gasless fee quotes...');
-
-      // Get fee quotes with timeout
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Fee quote timeout. Please try again.')), 30000)
-      );
-
-      const feeQuotesResult = await Promise.race([
-        smartAccount.getFeeQuotes(tx),
-        timeoutPromise
-      ]) as any;
-
-      if (!feeQuotesResult) {
-        throw new Error('Failed to get fee quotes');
-      }
-
-      const gaslessQuote = feeQuotesResult.verifyingPaymasterGasless;
-
-      if (!gaslessQuote) {
-        throw new Error('Gasless transactions not available right now. Please try again later.');
-      }
-
-      console.log('✅ Sending gasless user operation...');
-
-      // Send user operation
-      const hash = await smartAccount.sendUserOperation({
-        userOp: gaslessQuote.userOp,
-        userOpHash: gaslessQuote.userOpHash,
+      const hash = await walletClient.writeContract({
+        address: CONTRACTS.USDT[56],
+        abi: USDT_TRANSFER_ABI,
+        functionName: "transfer",
+        args: [recipientAddress as `0x${string}`, parsedAmount],
+        account: address as `0x${string}`,
+        chain: bsc,
       });
 
       console.log('✅ Transaction hash:', hash);
+
+      if (publicClient && 'waitForTransactionReceipt' in publicClient) {
+        await (publicClient as any).waitForTransactionReceipt({ hash });
+      }
+
       return hash;
 
     } catch (error: any) {
-      console.error('❌ Gasless USDT transfer error:', error);
+      console.error("❌ USDT transfer error:", error);
 
-      let userMessage = 'Transaction failed: ';
+      let userMessage = "Transaction failed: ";
 
-      if (error.message.includes('insufficient')) {
-        userMessage += 'Insufficient USDT balance in your smart wallet.';
-      } else if (error.message.includes('timeout')) {
-        userMessage += 'Request timed out. Please check your connection and try again.';
-      } else if (error.message.includes('rejected')) {
-        userMessage += 'Transaction was rejected or canceled.';
-      } else if (error.message.includes('gasless')) {
-        userMessage += 'Gasless transactions are temporarily unavailable.';
+      if (error.message.includes("insufficient") || error.message.includes("exceed")) {
+        userMessage += "Insufficient BNB for gas or USDT balance.";
+      } else if (error.message.includes("rejected")) {
+        userMessage += "Transaction was rejected or canceled.";
       } else {
-        userMessage += error.message || 'Unknown error occurred.';
+        userMessage += error.message || "Unknown error occurred.";
       }
 
       throw new Error(userMessage);
@@ -323,10 +257,7 @@ export default function BuySellSection() {
     approveUSDT,
   } = useWalletManager();
 
-  // CRITICAL: Only use smart wallet address for orders - no EOA fallback
-  // This ensures orders are always created with the correct smart wallet address
-  const address = walletData?.smartWallet?.address;
-  const isSmartWalletReady = !!address;
+  const address = eoaAddress;
 
   const {
     orders,
@@ -435,7 +366,7 @@ export default function BuySellSection() {
       });
 
       if (orderType.includes("SELL")) {
-        console.log("💰 SELL ORDER: Completely gasless via Gas Station");
+        console.log("💰 SELL ORDER: Particle smart account, user pays native gas");
 
         const sellResult = await handleSellOrder(
           orderType,
@@ -552,7 +483,7 @@ export default function BuySellSection() {
     let txHash: string | null = null;
 
     try {
-      console.log('🚀 Starting gasless sell order creation:', {
+      console.log("🚀 Starting user-paid sell order creation:", {
         orderType,
         finalOrderAmount,
         finalUsdtAmount,
@@ -564,15 +495,15 @@ export default function BuySellSection() {
       // Get USDT decimals (BSC USDT uses 18 decimals)
       const usdtDecimals = 18;
 
-      // Send USDT directly to admin using gasless transfer
-      console.log('💸 Initiating gasless USDT transfer to admin wallet...');
-      txHash = await sendGaslessUSDT(
+      // Send USDT directly to admin through Particle AA while the user pays native gas
+      console.log("💸 Initiating user-paid Particle USDT transfer to admin wallet...");
+      txHash = await sendUserPaidUSDT(
         ADMIN_WALLET_ADDRESS,
         finalUsdtAmount,
         usdtDecimals
       );
 
-      console.log('✅ Gasless USDT transfer successful:', txHash);
+      console.log("✅ User-paid Particle USDT transfer successful:", txHash);
 
       // CRITICAL: Create database order IMMEDIATELY after getting hash
       // This ensures we capture the order even if confirmation times out
@@ -588,7 +519,7 @@ export default function BuySellSection() {
         paymentMethod: paymentMethod.toUpperCase(),
         blockchainOrderId: null,
         status: 'PENDING_ADMIN_PAYMENT',
-        gasStationTxHash: txHash, // Store the gasless transfer hash
+        gasStationTxHash: txHash, // Preserve existing DB field name for compatibility
         linkedEoaAddress: eoaAddress, // Link Smart Wallet to EOA user
       };
 
@@ -597,7 +528,7 @@ export default function BuySellSection() {
       let databaseOrder;
       try {
         databaseOrder = await createDatabaseOrderWithRetry(orderPayload);
-        console.log('✅ Sell order created - USDT transferred to admin via gasless transaction');
+        console.log("✅ Sell order created - USDT transferred to admin via user-paid Particle transaction");
       } catch (dbError) {
         console.error('❌ Database creation failed but Transaction Sent:', txHash, dbError);
         const errMessage = dbError instanceof Error ? dbError.message : String(dbError);
@@ -632,7 +563,7 @@ export default function BuySellSection() {
       return databaseOrder;
 
     } catch (sellError) {
-      console.error('❌ Gasless sell order creation failed:', sellError);
+      console.error("❌ User-paid sell order creation failed:", sellError);
 
       const errorMessage =
         sellError instanceof Error ? sellError.message : String(sellError);
@@ -647,7 +578,7 @@ export default function BuySellSection() {
       } else if (errorMessage.includes('timeout')) {
         throw new Error('Request timed out. Please try again.');
       } else {
-        throw new Error(`Gasless sell order failed: ${errorMessage}`);
+        throw new Error(`Sell order failed: ${errorMessage}`);
       }
     }
   };
@@ -765,19 +696,11 @@ export default function BuySellSection() {
   const handleBuySellClick = async () => {
     if (!isConnected || !amount || parseFloat(amount) <= 0) return;
 
-    // CRITICAL: Check if smart wallet is ready before creating orders
-    if (!isSmartWalletReady) {
-      alert('Please wait for your smart wallet to initialize before creating orders.');
-      console.log('⏳ Smart wallet not ready yet, please wait...');
-      return;
-    }
-
     console.log("🎯 Handle buy/sell click:", {
       activeTab,
       paymentMethod,
       hasBankDetails: !!bankDetails,
       walletAddress: address,
-      isSmartWalletReady,
     });
 
     // Calculate USDT amount for validation
@@ -875,7 +798,6 @@ export default function BuySellSection() {
   // Update the button disabled condition to include validation
   const isButtonDisabled =
     !isConnected ||
-    !isSmartWalletReady ||
     isPlacingOrder ||
     !amount ||
     parseFloat(amount) <= 0 ||
@@ -1054,6 +976,17 @@ export default function BuySellSection() {
       <div className="bg-black text-white h-full flex items-center justify-center p-4 sm:p-8 max-w-4xl mx-auto">
         <div className="w-full space-y-4">
           {/* Enhanced Wallet Balance Card */}
+
+          {/* History Icon - Top */}
+          <div className="flex justify-end max-w-md mx-auto mb-2">
+            <button
+              onClick={() => setShowHistory(true)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#622DBF] rounded-lg bg-[#622DBF]/5 hover:bg-[#622DBF]/15 transition-all"
+            >
+              <History className="w-6 h-6 text-[#622DBF]" />
+              
+            </button>
+          </div>
 
           {/* Price Display - Centered */}
           <motion.div
@@ -1770,6 +1703,11 @@ export default function BuySellSection() {
         usdtAmount={amount} // User entered USDT amount
         amount={calculateRupee(amount)} // Calculated rupee amount
         orderData={currentOrder}
+      />
+
+      <HistoryDrawer
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
       />
 
       <BankDetailsModal

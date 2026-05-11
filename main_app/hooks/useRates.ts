@@ -61,12 +61,12 @@ export const useRates = () => {
 
   const getBuyRate = (currency: 'UPI' | 'CDM') => {
     const rate = rates.find(r => r.currency === currency);
-    return rate?.buyRate || 85.6;
+    return Number(rate?.buyRate) || 85.6;
   };
 
   const getSellRate = (currency: 'UPI' | 'CDM') => {
     const rate = rates.find(r => r.currency === currency);
-    return rate?.sellRate || 85.6;
+    return Number(rate?.sellRate) || 85.6;
   };
 
   const refetch = useCallback(async () => {
