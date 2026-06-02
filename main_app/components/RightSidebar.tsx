@@ -93,16 +93,13 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, eoaAddress, sola
 
     // Show the right address per chain:
     // - Solana → solanaAddress
-    // - BSC → smartWalletAddress (where sponsored txns/trading happens)
-    // - Other EVM → eoaAddress (smart wallet not deployed/funded there)
+    // - All EVM chains → smartWalletAddress (counterfactual, same address across all chains)
     const displayAddress = selectedChainId === 101 ? solanaAddress : (
-        selectedChainId === 56 ? smartWalletAddress : eoaAddress
+        smartWalletAddress ?? eoaAddress
     )
 
-    // Use smart wallet on BSC (trading/sponsored txns), EOA on other EVM chains
-    const tradingAddress = selectedChainId === 56
-        ? (smartWalletAddress ?? eoaAddress)
-        : eoaAddress
+    // Use smart wallet on all EVM chains (counterfactual deployment)
+    const tradingAddress = smartWalletAddress ?? eoaAddress
     const selectedChain = CHAIN_CONFIGS.find(c => c.id === selectedChainId) ?? CHAIN_CONFIGS[1]
     const { assets, totalUsd, isLoading: assetsLoading, error: assetsError, refetch: refetchAssets } = useChainAssets(
         selectedChainId === 101 ? null : tradingAddress,
