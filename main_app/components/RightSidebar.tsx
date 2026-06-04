@@ -249,7 +249,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, eoaAddress, sola
                 setTxHash(hash)
                 setSendAmount('')
                 setRecipientAddress('')
-                setTimeout(() => { if (tradingAddress) fetchOnChainHistory(tradingAddress) }, 5000)
+                setTimeout(() => { if (historyAddress) fetchOnChainHistory(historyAddress) }, 5000)
             } else {
                 // Solana
                 if (!selectedSolanaAsset) throw new Error('Select an asset to send')
@@ -289,12 +289,13 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose, eoaAddress, sola
         }
     }
 
+    const historyAddress = smartWalletAddress ?? eoaAddress ?? ''
     useEffect(() => {
-        if (isOpen && tradingAddress) {
-            console.log('🔄 Sidebar opened, fetching history:', tradingAddress)
-            fetchOnChainHistory(tradingAddress)
+        if (isOpen && historyAddress) {
+            console.log('🔄 Sidebar opened, fetching history:', historyAddress)
+            fetchOnChainHistory(historyAddress)
         }
-    }, [isOpen, tradingAddress])
+    }, [isOpen, historyAddress])
 
     useEffect(() => {
         const fetchRates = async () => {
