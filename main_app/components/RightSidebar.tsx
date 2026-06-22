@@ -23,7 +23,7 @@ import { useRouter } from 'next/navigation'
 import { useWalletManager } from '@/hooks/useWalletManager'
 import { useChainAssets } from '@/hooks/useChainAssets'
 import { formatBalance, formatUsd, type TokenAsset } from '@/lib/ankrApi'
-import { CHAIN_CONFIGS, getChainById, isBNB, isSolana, type ChainId } from '@/lib/chainConfig'
+import { CHAIN_CONFIGS, getChainById, isBNB, isEvmChain, isSolana, type ChainId } from '@/lib/chainConfig'
 import { sendSponsoredContractWrite, sendSponsoredSmartAccountTransaction } from '@/lib/sponsoredTransactions'
 import { createSignHashWithRetry } from '@/lib/sponsoredSigning'
 
@@ -115,6 +115,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
         asset: TokenAsset,
         amount: string,
         recipient: string,
+        chainId: number,
     ): Promise<string> => {
         if (!isAddress(recipient)) throw new Error('Invalid recipient address');
         const amountNum = parseFloat(amount);
@@ -132,7 +133,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                     value: `0x${parseUnits(amount, asset.decimals).toString(16)}` as `0x${string}`,
                 },
                 skipInitCode: shouldSkipInitCode,
-            }, signHashWithRetry)
+            }, signHashWithRetry, chainId)
         }
 
         return sendSponsoredContractWrite({
@@ -143,7 +144,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
             functionName: 'transfer',
             args: [recipient as `0x${string}`, parseUnits(amount, asset.decimals)],
             skipInitCode: shouldSkipInitCode,
-        } as any, signHashWithRetry)
+        } as any, signHashWithRetry, chainId)
     }
 
     const handleSend = async () => {
@@ -153,7 +154,8 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
         setIsSending(true)
 
         try {
-            const hash = await sendEVMNormalToken(selectedAsset!, sendAmount, recipientAddress)
+            const chainId = selectedChain === 'solana' ? 56 : (selectedChain as number)
+            const hash = await sendEVMNormalToken(selectedAsset!, sendAmount, recipientAddress, chainId)
             setTxHash(hash)
             setSendAmount('')
             setRecipientAddress('')
@@ -616,7 +618,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                             </div>
                                             Receive
                                         </button>
-                                        {isBNB(selectedChain) ? (
+                                        {isEvmChain(selectedChain) ? (
                                             <button
                                                 onClick={() => setCurrentView('Send')}
                                                 className="flex items-center justify-center gap-2 bg-[#6320EE] hover:bg-[#5219d1] text-white py-4 rounded-xl font-bold text-lg transition-all active:scale-95"
