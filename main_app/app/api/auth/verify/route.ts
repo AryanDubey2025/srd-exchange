@@ -12,9 +12,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = await withDatabaseRetry(() => prisma.user.findUnique({
+    const user = await withDatabaseRetry(() => prisma.user.findFirst({
       where: {
-        walletAddress: walletAddress.toLowerCase()
+        OR: [
+          { walletAddress: walletAddress.toLowerCase() },
+          { smartWalletAddress: walletAddress.toLowerCase() }
+        ]
       },
       include: {
         bankDetails: true

@@ -29,7 +29,7 @@ interface BankDetails {
 export default function CompleteProfilePage() {
   const router = useRouter();
   const { isSignedIn } = useIsSignedIn();
-  const { address } = useWalletManager();
+  const { address, eoaAddress } = useWalletManager();
   const { isInitialized } = useIsInitialized();
 
   const [upiId, setUpiId] = useState("");
@@ -151,8 +151,10 @@ export default function CompleteProfilePage() {
 
     // Helper to call complete-profile
     const completeProfile = async () => {
+      const smartWallet = address !== eoaAddress ? address : null;
       const requestData = {
-        walletAddress: address,
+        walletAddress: eoaAddress || address,
+        smartWalletAddress: smartWallet,
         upiId: upiId.trim(),
         bankDetails: (isBankDetailsComplete() && !skipCDM) ? {
           accountNumber: bankDetails.accountNumber,
@@ -177,11 +179,14 @@ export default function CompleteProfilePage() {
 
       // If user not found, register and retry
       if (response.status === 404 && data?.error?.includes("register")) {
-        // Register user
+        // Register user with both EOA and smart wallet address
         const regRes = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress: address }),
+          body: JSON.stringify({
+            eoaAddress: eoaAddress || address,
+            walletAddress: address,
+          }),
         });
         if (regRes.ok) {
           // Retry profile completion

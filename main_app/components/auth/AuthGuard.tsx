@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useIsSignedIn, useIsInitialized } from '@coinbase/cdp-hooks'
 import { useWalletManager } from '@/hooks/useWalletManager'
@@ -23,6 +23,7 @@ export default function AuthGuard({
   const [isVerifying, setIsVerifying] = useState(true)
   const [isAuthorized, setIsAuthorized] = useState(false)
   const { isInitialized } = useIsInitialized()
+  const verifiedRef = useRef(false)
 
   useEffect(() => {
     const verifyUser = async () => {
@@ -43,6 +44,11 @@ export default function AuthGuard({
         setIsAuthorized(false)
         setIsVerifying(false)
         router.push(redirectTo)
+        return
+      }
+
+      if (verifiedRef.current) {
+        setIsVerifying(false)
         return
       }
 
@@ -69,6 +75,7 @@ export default function AuthGuard({
             setIsAuthorized(false)
           } else {
             console.log("AuthGuard: Profile completed, allowing access");
+            verifiedRef.current = true
             setIsAuthorized(true)
           }
         } else {

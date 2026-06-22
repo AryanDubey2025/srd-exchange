@@ -3,7 +3,7 @@ import { prisma, withDatabaseRetry } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
-    const { walletAddress, upiId, bankDetails } = await request.json();
+    const { walletAddress, smartWalletAddress, upiId, bankDetails } = await request.json();
 
     console.log("Complete profile request:", { walletAddress, upiId, hasBankDetails: !!bankDetails });
 
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       data: {
         upiId: upiId.trim(),
         profileCompleted: true, // Always mark as completed when UPI ID is saved
+        smartWalletAddress: smartWalletAddress ? smartWalletAddress.toLowerCase() : undefined,
         lastLoginAt: new Date(),
       },
       include: { bankDetails: true }

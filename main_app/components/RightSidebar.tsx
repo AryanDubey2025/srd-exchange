@@ -12,6 +12,7 @@ import {
     LogOut,
     RefreshCw,
     FileClock,
+    ChevronDown,
 } from 'lucide-react'
 import { FC, useState, useEffect, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -247,6 +248,12 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                                     />
                                     <span className="text-white text-xs font-medium">{chainConfig.abbr}</span>
+                                    <motion.div
+                                        animate={{ rotate: showChainDropdown ? 180 : 0 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <ChevronDown className="w-3.5 h-3.5 text-white/60" />
+                                    </motion.div>
                                 </button>
 
                                 {showChainDropdown && (
@@ -284,6 +291,12 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                     <span className="text-white text-xs font-medium truncate">
                                         {displayAddress ? formatAddress(displayAddress) : <span className="text-white/40">Loading...</span>}
                                     </span>
+                                    <motion.div
+                                        animate={{ rotate: showWalletDropdown ? 180 : 0 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <ChevronDown className="w-3.5 h-3.5 text-white/60" />
+                                    </motion.div>
                                 </button>
 
                                 {showWalletDropdown && (
@@ -463,6 +476,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                                 <div className="text-white/60 text-xs">{formatBalance(asset.balance, asset.decimals)}</div>
                                                 <div className="text-white/30 text-xs">{formatUsd(asset.balanceUsd)}</div>
                                             </div>
+                                            
                                         </button>
                                     ))}
                                 </motion.div>

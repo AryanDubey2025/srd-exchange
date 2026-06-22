@@ -1157,17 +1157,25 @@ export default function BuySellSection() {
                     transition={{ duration: 0.2 }}
                   />
                   <span
-                    className="pointer-events-none absolute right-3 top-1/2 max-w-[6rem] -translate-y-1/2 truncate text-right text-[0.65rem] font-medium leading-tight text-gray-400 sm:right-4 sm:max-w-none sm:text-xs"
+                    className={`pointer-events-none absolute right-3 max-w-[7rem] truncate text-right text-[0.65rem] font-medium leading-tight text-gray-400 sm:right-4 sm:max-w-none sm:text-xs ${activeTab === "sell" ? "top-1/4" : "top-1/2 -translate-y-1/2"}`}
                     title="Wallet USDT balance"
                   >
                     {walletLoading ? (
                       <span className="text-gray-500">…</span>
                     ) : displayUsdtBalance !== null ? (
-                      <span className="flex items-center gap-1" title={`${displayUsdtBalance} USDT`}>
-                        <span className="text-white/60 max-w-[4rem] truncate sm:max-w-none">{displayUsdtBalance}</span>
-                        <button onClick={handleMaxClick} className="pointer-events-auto text-[#622DBF] font-bold hover:text-[#8B5CF6]">
-                         MAX
-                        </button>
+                      <span className={`${activeTab === "sell" ? "flex flex-col items-end gap-0.5" : "flex items-center gap-1"}`} title={`${displayUsdtBalance} USDT`}>
+                        <span className="text-white/60 max-w-[4rem] truncate sm:max-w-none">
+                          {activeTab === "buy" ? (
+                            <><span className="text-[#622DBF] font-semibold">USDT</span> {displayUsdtBalance}</>
+                          ) : (
+                            <>{displayUsdtBalance} <span className="text-[#622DBF] font-semibold">USDT</span></>
+                          )}
+                        </span>
+                        {activeTab === "sell" && (
+                          <button onClick={handleMaxClick} className="pointer-events-auto text-[#622DBF] font-bold hover:text-[#8B5CF6] leading-none">
+                           MAX
+                          </button>
+                        )}
                       </span>
                     ) : (
                       <span className="text-gray-500">—</span>

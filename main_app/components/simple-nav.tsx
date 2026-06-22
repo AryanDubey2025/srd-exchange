@@ -68,14 +68,9 @@ export default function SimpleNav() {
             />
             {address && isSmartAccountReady ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-white/80">
-                  {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                <span className="text-md font-mono text-[#622DBF]">
+                  wallet
                 </span>
-                {walletData?.balances?.usdt?.formatted && (
-                  <span className="text-xs font-medium text-[#622DBF] bg-[#622DBF]/10 px-1.5 py-0.5 rounded">
-                    {parseFloat(walletData.balances.usdt.formatted).toFixed(2)} USDT
-                  </span>
-                )}
               </div>
             ) : (
               <span className="text-sm font-medium text-[#622DBF]">
