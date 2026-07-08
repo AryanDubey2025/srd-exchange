@@ -210,7 +210,7 @@ export default function FutureTradingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.8 }}
           >
-            Advanced cryptocurrency futures trading with leverage, 
+            Advanced cryptocurrency futures trading with Multi-API, 
             perpetual swaps, and professional trading tools. 
             Get ready for the next level of crypto trading.
           </motion.p>
