@@ -1240,7 +1240,7 @@ export function useWalletManager() {
     try {
       const result = await sendSolanaTransaction({
         solanaAccount: solanaAddress,
-        network: "mainnet",
+        network: "solana",
         transaction: base64Transaction
       });
       setIsPending(false);

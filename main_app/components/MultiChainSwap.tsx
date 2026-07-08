@@ -322,7 +322,7 @@ export default function MultiChainSwap() {
                   address: t.address as Address,
                   symbol: t.symbol,
                   decimals: t.decimals,
-                  logo: t.metadata?.logoURI || undefined,
+                  logo: t.metadata?.logoURI || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==',
                   name: t.name
                 })}
                 className="flex items-center gap-1.5 shrink-0 bg-black/40 rounded-full px-2 py-0.5 border border-white/5 cursor-pointer hover:bg-black/60 transition-colors"
