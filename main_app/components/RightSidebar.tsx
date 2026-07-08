@@ -245,7 +245,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
         if (isNaN(amountNum) || amountNum <= 0) throw new Error('Enter a valid amount');
 
         const { PublicKey, Transaction, SystemProgram } = await import('@solana/web3.js');
-        const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
+        const SOLANA_RPC = `https://solana-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
 
         const rpcCall = async (method: string, params: any[]) => {
             const res = await fetch(SOLANA_RPC, {

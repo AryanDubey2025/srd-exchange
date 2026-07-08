@@ -77,7 +77,9 @@ export function DynamicTokenModal({ isOpen, onClose, chains, selectedChainId, ev
   const { balances, isLoading: isLoadingBalances } = useTokenBalances(
     activeChain, 
     tokens, 
-    activeChainObj?.httpRpcUrl, 
+    activeChain === 792703809 
+      ? `https://solana-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+      : activeChainObj?.httpRpcUrl || 'https://api.mainnet-beta.solana.com', 
     evmAddress, 
     solanaAddress
   );

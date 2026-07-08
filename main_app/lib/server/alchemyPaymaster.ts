@@ -182,6 +182,18 @@ export async function attachSponsoredPaymasterData(
   } else if (chainId === 8453) {
     rpcUrl = `https://base-mainnet.g.alchemy.com/v2/${apiKey}`;
     chainIdHex = "0x2105"; // Base chain ID hex
+  } else if (chainId === 1) {
+    rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`;
+    chainIdHex = "0x1";
+  } else if (chainId === 10) {
+    rpcUrl = `https://opt-mainnet.g.alchemy.com/v2/${apiKey}`;
+    chainIdHex = "0xa";
+  } else if (chainId === 42161) {
+    rpcUrl = `https://arb-mainnet.g.alchemy.com/v2/${apiKey}`;
+    chainIdHex = "0xa4b1";
+  } else if (chainId === 43114) {
+    rpcUrl = `https://avax-mainnet.g.alchemy.com/v2/${apiKey}`;
+    chainIdHex = "0xa86a";
   }
 
   if (!policyId) {

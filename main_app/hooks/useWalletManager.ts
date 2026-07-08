@@ -1287,6 +1287,7 @@ export function useWalletManager() {
 
     createSellOrder,
     createBuyOrder,
+    executeSolanaSwap,
 
     deployAccount,
 
@@ -1294,7 +1295,6 @@ export function useWalletManager() {
 
     hash: txHash,
     isPending,
-    isConfirming,
-    executeSolanaSwap
+    isConfirming
   };
 }
