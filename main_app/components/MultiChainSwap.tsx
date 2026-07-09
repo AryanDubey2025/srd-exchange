@@ -77,7 +77,8 @@ export default function MultiChainSwap() {
     signHash,
     shouldSkipInitCode,
     switchChain,
-    solanaAddress
+    solanaAddress,
+    executeSolanaSwap
   } = useWalletManager()
   const { quote, isFetching, error, fetchQuote, clearQuote } = useRelayQuote()
 
@@ -213,7 +214,31 @@ export default function MultiChainSwap() {
       const transactions = [];
 
       if (sourceChain === 792703809) {
-        throw new Error("Swapping FROM Solana requires a native SOL balance for gas. For now, please swap TO Solana instead.");
+        let base64Tx = "";
+        for (const step of quote.steps) {
+          for (const item of step.items) {
+            const payload = item.data as any;
+            if (!payload) continue;
+            
+            if (typeof payload === 'string') {
+              base64Tx = payload;
+            } else if (payload.transaction) {
+              base64Tx = typeof payload.transaction === 'string' ? payload.transaction : (payload.transaction.serialized || payload.transaction.data);
+            } else if (payload.data) {
+              base64Tx = payload.data;
+            }
+            
+            if (base64Tx) break;
+          }
+          if (base64Tx) break;
+        }
+        
+        if (!base64Tx) throw new Error("Could not find Solana transaction payload from Relay.");
+        
+        const hash = await executeSolanaSwap(base64Tx);
+        setTxHash(hash);
+        setTxStatus('success');
+        return;
       }
 
       for (const step of quote.steps) {

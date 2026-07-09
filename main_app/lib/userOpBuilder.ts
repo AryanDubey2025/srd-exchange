@@ -82,6 +82,7 @@ function getAlchemyRpcUrl(chainId: number): string {
     case 42161: return "https://arb-mainnet.g.alchemy.com/v2";
     case 8453: return "https://base-mainnet.g.alchemy.com/v2";
     case 10: return "https://opt-mainnet.g.alchemy.com/v2";
+    case 43114: return "https://avax-mainnet.g.alchemy.com/v2";
     case 11155111: return "https://eth-sepolia.g.alchemy.com/v2";
     case 56:
     default: return "https://bnb-mainnet.g.alchemy.com/v2";
