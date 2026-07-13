@@ -73,13 +73,27 @@ export function DynamicTokenModal({ isOpen, onClose, chains, selectedChainId, ev
     }
   }, [activeChain, searchQuery, isOpen]);
 
+  const getRpcUrl = (chainId: number, fallbackUrl?: string) => {
+    const key = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+    switch(chainId) {
+      case 792703809: return `https://solana-mainnet.g.alchemy.com/v2/${key}`;
+      case 56: return `https://bnb-mainnet.g.alchemy.com/v2/${key}`;
+      case 1: return `https://eth-mainnet.g.alchemy.com/v2/${key}`;
+      case 8453: return `https://base-mainnet.g.alchemy.com/v2/${key}`;
+      case 42161: return `https://arb-mainnet.g.alchemy.com/v2/${key}`;
+      case 10: return `https://opt-mainnet.g.alchemy.com/v2/${key}`;
+      case 137: return `https://polygon-mainnet.g.alchemy.com/v2/${key}`;
+      case 43114: return `https://avax-mainnet.g.alchemy.com/v2/${key}`;
+      default: return fallbackUrl;
+    }
+  };
+
   const activeChainObj = chains.find(c => c.id === activeChain);
   const { balances, isLoading: isLoadingBalances } = useTokenBalances(
     activeChain, 
     tokens, 
-    activeChain === 792703809 
-      ? `https://solana-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-      : activeChainObj?.httpRpcUrl || 'https://api.mainnet-beta.solana.com', 
+    getRpcUrl(activeChain, activeChainObj?.httpRpcUrl), 
+
     evmAddress, 
     solanaAddress
   );
@@ -95,17 +109,20 @@ export function DynamicTokenModal({ isOpen, onClose, chains, selectedChainId, ev
       const baseHeaders: HeadersInit = apiKey ? { 'x-api-key': apiKey } : {};
       
       // If it's a contract address
-      if (query.startsWith('0x') && query.length === 42) {
+      const isEVMAddress = query.startsWith('0x') && query.length === 42;
+      const isSolanaAddress = !query.startsWith('0x') && query.length >= 32 && query.length <= 44;
+      
+      if (isEVMAddress || isSolanaAddress) {
         const response = await fetch(`${baseUrl}/chains/${chainId}/currencies/${query}`, { headers: baseHeaders });
         if (response.ok) {
           const data = await response.json();
-          if (data && data.currency) {
+          if (data && data.symbol && data.address) {
               setTokens([{
-                  symbol: data.currency.symbol,
-                  address: data.currency.address as Address,
-                  decimals: data.currency.decimals,
-                  logo: data.currency.metadata?.logoURI || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==',
-                  name: data.currency.name
+                  symbol: data.symbol,
+                  address: data.address as Address,
+                  decimals: data.decimals,
+                  logo: data.metadata?.logoURI || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==',
+                  name: data.name
               }]);
               return;
           }
