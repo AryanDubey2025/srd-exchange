@@ -51,9 +51,11 @@ export function useRelayTransactions(userAddress?: string) {
           const inTx = req.data?.inTxs?.[0] || {};
           const outTx = req.data?.outTxs?.[0] || {};
           
-          // Use metadata as fallback for currency info if inTxs/outTxs don't have it
-          const inCurrency = req.data?.metadata?.currencyIn || inTx.currency || {};
-          const outCurrency = req.data?.metadata?.currencyOut || outTx.currency || {};
+          const metadataIn = req.data?.metadata?.currencyIn || {};
+          const metadataOut = req.data?.metadata?.currencyOut || {};
+          
+          const inCurrency = metadataIn.currency || inTx.currency || {};
+          const outCurrency = metadataOut.currency || outTx.currency || {};
           
           // Map Status
           let status: Transaction['status'] = 'pending';
@@ -72,8 +74,8 @@ export function useRelayTransactions(userAddress?: string) {
             try { return parseFloat(formatUnits(BigInt(amt), dec)).toFixed(4); } catch { return "0.0000"; }
           };
 
-          const fromAmount = formatAmt(inTx.amount || inCurrency.amount, inCurrency.decimals || 18);
-          const toAmount = formatAmt(outTx.amount || outCurrency.amount, outCurrency.decimals || 18);
+          const fromAmount = formatAmt(inTx.amount || metadataIn.amount, inCurrency.decimals || 18);
+          const toAmount = formatAmt(outTx.amount || metadataOut.amount, outCurrency.decimals || 18);
           
           const inTxHash = inTx.hash || inTx.txHash;
           const outTxHash = outTx.hash || outTx.txHash;
@@ -89,7 +91,7 @@ export function useRelayTransactions(userAddress?: string) {
               amount: fromAmount,
               address: req.user,
               addressLabel: 'User',
-              iconUrl: undefined
+              iconUrl: inCurrency.metadata?.logoURI
             },
             to: {
               chainId: outTx.chainId || req.destinationChainId || 1,
@@ -97,7 +99,7 @@ export function useRelayTransactions(userAddress?: string) {
               amount: toAmount,
               address: req.recipient || req.user,
               addressLabel: 'Recipient',
-              iconUrl: undefined
+              iconUrl: outCurrency.metadata?.logoURI
             },
             kind: 'Origin Tx',
             txHashShort: inTxHash ? `${inTxHash.slice(0, 6)}...${inTxHash.slice(-4)}` : '...',

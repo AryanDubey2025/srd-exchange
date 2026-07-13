@@ -65,7 +65,10 @@ export function TokenModal({ isOpen, onClose, chainId, onSelect }: TokenModalPro
 
   useEffect(() => {
     // Dynamic token search via Relay API
-    if (searchQuery.startsWith('0x') && searchQuery.length === 42) {
+    const isEVMAddress = searchQuery.startsWith('0x') && searchQuery.length === 42;
+    const isSolanaAddress = !searchQuery.startsWith('0x') && searchQuery.length >= 32 && searchQuery.length <= 44;
+    
+    if (isEVMAddress || isSolanaAddress) {
       searchCustomToken(searchQuery);
     } else {
       // Filter defaults
@@ -92,13 +95,13 @@ export function TokenModal({ isOpen, onClose, chainId, onSelect }: TokenModalPro
       if (response.ok) {
         const data = await response.json();
         // The API returns the currency info directly
-        if (data && data.currency) {
+        if (data && data.symbol && data.address) {
             setTokens([{
-                symbol: data.currency.symbol,
-                address: data.currency.address as Address,
-                decimals: data.currency.decimals,
-                logo: data.currency.metadata?.logoURI || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==',
-                name: data.currency.name
+                symbol: data.symbol,
+                address: data.address as Address,
+                decimals: data.decimals,
+                logo: data.metadata?.logoURI || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==',
+                name: data.name
             }]);
         }
       }

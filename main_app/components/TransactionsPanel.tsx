@@ -2,8 +2,11 @@ import { useEffect } from "react";
 import { Copy, X, CheckCircle2 } from "lucide-react";
 import { useRelayTransactions, type Transaction, type TxLeg } from "@/hooks/useRelayTransactions";
 import { useWalletManager } from "@/hooks/useWalletManager";
+import { CHAIN_CONFIGS } from "@/lib/chainConfig";
 
 function TokenIcon({ leg }: { leg: TxLeg }) {
+  const chainConfig = CHAIN_CONFIGS.find(c => c.id === leg.chainId);
+  
   return (
     <div className="relative shrink-0">
       {leg.iconUrl ? (
@@ -12,6 +15,13 @@ function TokenIcon({ leg }: { leg: TxLeg }) {
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple to-[#5b1fc9] flex items-center justify-center text-white text-xs font-bold">
           {leg.symbol.slice(0, 3)}
         </div>
+      )}
+      {chainConfig && (
+        <img 
+          src={chainConfig.logo} 
+          alt={chainConfig.name} 
+          className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-dark-card bg-dark-card object-cover"
+        />
       )}
     </div>
   );
