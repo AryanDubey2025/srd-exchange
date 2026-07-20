@@ -2,12 +2,6 @@
 
 import BottomNavbar from '@/components/bottom-navbar';
 import RightSidebar from '@/components/RightSidebar';
-import { useSidebar } from '@/context/SidebarContext';
-
-function SidebarWrapper() {
-    const { isSidebarOpen, closeSidebar } = useSidebar();
-    return <RightSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />;
-}
 
 export default function MainLayout({
     children,
@@ -15,9 +9,15 @@ export default function MainLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="min-h-screen bg-black pb-28">
-            {children}
-            <SidebarWrapper />
+        <div className="min-h-screen bg-black">
+            <div className="flex">
+                <main className="flex-1 min-w-0 pb-28">
+                    {children}
+                </main>
+                <aside className="hidden lg:block w-[500px] shrink-0 h-[100dvh] sticky top-0 border-l border-white/10 bg-black/60 backdrop-blur-xl overflow-hidden pt-[72px]">
+                    <RightSidebar />
+                </aside>
+            </div>
             <BottomNavbar />
         </div>
     );

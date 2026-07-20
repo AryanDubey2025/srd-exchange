@@ -1,5 +1,4 @@
 'use client'
-
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     ArrowDownLeft,
@@ -15,9 +14,8 @@ import {
     ChevronDown,
     Flame,
 } from 'lucide-react'
-import { FC, useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import Image from 'next/image'
 import { useIsSignedIn, useSignOut, useSignEvmHash, useSolanaAddress, useSignEvmTransaction, useSendSolanaTransaction } from '@coinbase/cdp-hooks'
 import { parseUnits, erc20Abi, isAddress, encodeFunctionData } from 'viem'
 import { useRouter } from 'next/navigation'
@@ -28,13 +26,9 @@ import { CHAIN_CONFIGS, getChainById, isBNB, isEvmChain, isSolana, type ChainId 
 import { sendSponsoredContractWrite, sendSponsoredSmartAccountTransaction } from '@/lib/sponsoredTransactions'
 import { createSignHashWithRetry } from '@/lib/sponsoredSigning'
 
-interface RightSidebarProps {
-    isOpen: boolean
-    onClose: () => void
-}
-
-const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
-    const [currentView, setCurrentView] = useState<'Main' | 'Send' | 'Receive'>('Main')
+export default function RightSidebar() {
+    const router = useRouter()
+    const [currentView, setCurrentView] = useState<'Main' | 'Send' | 'Receive' | 'History'>('Main')
     const [copyStatus, setCopyStatus] = useState(false)
     const [sendAmount, setSendAmount] = useState('')
     const [recipientAddress, setRecipientAddress] = useState('')
@@ -45,7 +39,6 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
     const [sellRate, setSellRate] = useState<number>(0)
     const [historyData, setHistoryData] = useState<any[]>([])
     const [isHistoryLoading, setIsHistoryLoading] = useState(false)
-    const [showHistory, setShowHistory] = useState(false)
     const [historyTypeFilter, setHistoryTypeFilter] = useState<'All' | 'Deposit' | 'Withdraw'>('All')
     const [selectedAsset, setSelectedAsset] = useState<TokenAsset | null>(null)
     const [showAssetDropdown, setShowAssetDropdown] = useState(false)
@@ -56,7 +49,6 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
 
     const { isSignedIn } = useIsSignedIn()
     const { signOut } = useSignOut()
-    const router = useRouter()
 
     const {
         address,
@@ -108,13 +100,12 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
             if (typeof window !== 'undefined') {
                 sessionStorage.clear()
             }
-            onClose()
             router.push('/')
-            setTimeout(() => window.location.reload(), 100)
+            setTimeout(() => router.refresh(), 100)
         } catch (error) {
             console.error('Logout error:', error)
             router.push('/')
-            window.location.reload()
+            router.refresh()
         }
     }
 
@@ -358,10 +349,10 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
 
     const historyEvmAddress = selectedChain === 792703809 ? (eoaAddress ?? address ?? '') : (smartWalletAddress ?? address ?? '')
     useEffect(() => {
-        if (isOpen && historyEvmAddress) {
+        if (historyEvmAddress) {
             fetchOnChainHistory(historyEvmAddress, solanaAddress)
         }
-    }, [isOpen, historyEvmAddress, solanaAddress])
+    }, [historyEvmAddress, solanaAddress])
 
     useEffect(() => {
         const fetchRates = async () => {
@@ -376,10 +367,8 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                 console.error('Failed to fetch rates:', err)
             }
         }
-        if (isOpen) {
-            fetchRates()
-        }
-    }, [isOpen])
+        fetchRates()
+    }, [])
 
     const formatAddress = (addr: string) => {
         if (!addr) return ''
@@ -398,9 +387,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
             return (
                 <div className="relative flex flex-col px-4 py-3 gap-2 shrink-0">
                     <div className="flex items-center justify-between gap-2">
-                        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors shrink-0">
-                            <Image src="/side.svg" alt="Close" width={24} height={24} />
-                        </button>
+                        <div className="w-9 h-9" />
 
                         <div className="flex items-center gap-2 min-w-0">
                             <div className="relative" ref={chainDropdownRef}>
@@ -424,12 +411,12 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                 </button>
 
                                 {showChainDropdown && (
-                                    <div className="absolute top-full mt-1 -right-18 bg-[#111] border border-white/10 rounded-xl overflow-hidden z-50 shadow-xl min-w-[160px]">
+                                    <div className="absolute top-full mt-1 -right-18 bg-[#0d0418]/98 backdrop-blur-2xl border border-white/20 rounded-2xl overflow-hidden z-50 shadow-[0_20px_60px_rgba(0,0,0,0.85)] min-w-[160px]">
                                         {CHAIN_CONFIGS.map(chain => (
                                             <button
                                                 key={chain.id}
                                                 onClick={() => { switchChain(chain.id); setShowChainDropdown(false) }}
-                                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-colors text-left ${chain.id === selectedChain ? 'bg-white/5' : ''
+                                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/10 transition-colors text-left ${chain.id === selectedChain ? 'bg-white/5' : ''
                                                     }`}
                                             >
                                                 <img
@@ -440,7 +427,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                                 />
                                                 <span className="text-white text-sm font-medium">{chain.name}</span>
                                                 {chain.id === selectedChain && (
-                                                    <span className="ml-auto text-[#6320EE] text-xs font-bold">✓</span>
+                                                    <span className="ml-auto text-purple text-xs font-bold">✓</span>
                                                 )}
                                             </button>
                                         ))}
@@ -453,7 +440,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                     onClick={() => setShowWalletDropdown(p => !p)}
                                     className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-full hover:bg-white/10 transition-colors"
                                 >
-                                    <Image src="/srd_gen.svg" alt="User" width={18} height={18} className="shrink-0" />
+                                    <img src="/srd_gen.svg" alt="User" className="w-[18px] h-[18px] shrink-0" />
                                     <span className="text-white text-xs font-medium truncate">
                                         {displayAddress ? formatAddress(displayAddress) : <span className="text-white/40">Loading...</span>}
                                     </span>
@@ -466,17 +453,17 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                 </button>
 
                                 {showWalletDropdown && (
-                                    <div className="absolute top-full mt-1 right-0 bg-[#111] border border-white/10 rounded-xl overflow-hidden z-50 shadow-xl min-w-[160px]">
+                                    <div className="absolute top-full mt-1 right-0 bg-[#0d0418]/98 backdrop-blur-2xl border border-white/20 rounded-2xl overflow-hidden z-50 shadow-[0_20px_60px_rgba(0,0,0,0.85)] min-w-[160px]">
                                         <button
                                             onClick={() => { copyToClipboard(displayAddress); setShowWalletDropdown(false) }}
-                                            className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-colors text-left"
+                                            className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/10 transition-colors text-left"
                                         >
                                             <Copy className="w-4 h-4 text-white/60" />
                                             <span className="text-white text-sm">Copy Address</span>
                                         </button>
                                         <button
                                             onClick={() => { handleLogout(); setShowWalletDropdown(false) }}
-                                            className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-colors text-left"
+                                            className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/10 transition-colors text-left"
                                         >
                                             <LogOut className="w-4 h-4 text-red-400" />
                                             <span className="text-red-400 text-sm">Disconnect</span>
@@ -491,14 +478,16 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
         }
 
         return (
-            <div className="relative flex items-center bg-white/5 px-4 py-4 shrink-0">
+            <div className="relative flex items-center bg-white/[0.03] backdrop-blur-xl px-4 py-4 shrink-0 border-b border-white/10">
                 <button
                     onClick={() => setCurrentView('Main')}
                     className="absolute left-4 rounded-full transition-colors hover:bg-white/10 p-1"
                 >
                     <ArrowLeft className="w-6 h-6 text-white" />
                 </button>
-                <h2 className="text-white text-xl font-bold mx-auto">{currentView}</h2>
+                <h2 className="text-white text-xl font-bold mx-auto">
+                    {currentView === 'History' ? 'History' : currentView}
+                </h2>
             </div>
         )
     }
@@ -508,10 +497,9 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
         const receiveAddr = isSolReceive ? (solanaAddress ?? '') : (smartWalletAddress ?? address ?? '')
         const receiveChainId = isSolReceive ? 792703809 : selectedChainId
         const receiveChainConfig = getChainById(receiveChainId)
-        const chainLabel = isSolReceive ? 'Solana' : (receiveChainConfig?.name ?? '') + '-compatible'
         return (
-            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="min-h-full flex flex-col items-center justify-center gap-6 px-6 pt-10 pb-28">
+            <div className="flex-1 overflow-y-auto">
+                <div className="min-h-full flex flex-col items-center justify-center gap-6 px-6 pt-10 pb-8">
                     <div className="w-full flex items-center justify-between">
                     <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
                         {(['EVM', 'SOL'] as const).map(mode => (
@@ -523,14 +511,13 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                     if (mode === 'SOL') setSelectedChainId(101);
                                 }}
                                 disabled={mode === 'SOL' && !solanaAddress}
-                                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${receiveMode === mode ? 'bg-[#6320EE] text-white' : 'text-white/40 hover:text-white/70'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${receiveMode === mode ? 'bg-purple text-white' : 'text-white/40 hover:text-white/70'} disabled:opacity-30 disabled:cursor-not-allowed`}
                             >
                                 {mode === 'SOL' ? 'Solana' : 'EVM'}
                             </button>
                         ))}
                     </div>
 
-                    {/* Stacked chain logos */}
                     <div className="flex items-center">
                         {CHAIN_CONFIGS.filter(c => receiveMode === 'SOL' ? c.id === 101 : c.id !== 101).map((chain, i, arr) => (
                             <div
@@ -553,7 +540,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                         ))}
                     </div>
                 </div>
-                    <p className="text-white/30 text-xs text-center">
+                    <p className="text-text-secondary text-xs text-center">
                         All EVM Compatible <span className="text-yellow-400 font-medium">tokens</span> can be securely deposited into this address
                     </p>
 
@@ -562,7 +549,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     <div className="w-full space-y-2">
-                        <p className="text-gray-500 text-sm font-medium text-center">
+                        <p className="text-text-secondary text-sm font-medium text-center">
                             Your Smart Wallet Address
                         </p>
                         <div
@@ -587,8 +574,8 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
     }
 
     const renderSendView = () => (
-        <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="min-h-full flex flex-col gap-5 px-6 pt-8 pb-28">
+        <div className="flex-1 overflow-y-auto">
+            <div className="min-h-full flex flex-col gap-5 px-6 pt-8 pb-8">
                 {txHash && (
                     <div className="w-full p-4 rounded-2xl bg-green-500/10 border border-green-500/20 flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-green-500">
@@ -649,18 +636,17 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                             )}
                         </button>
 
-
                         <AnimatePresence>
                             {showAssetDropdown && assets.length > 0 && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                                    className="absolute top-full mt-1 left-0 right-0 bg-[#111] border border-white/10 rounded-xl overflow-hidden z-50 shadow-xl max-h-52 overflow-y-auto [&::-webkit-scrollbar]:hidden"
+                                    className="absolute top-full mt-1 left-0 right-0 bg-[#0d0418]/98 backdrop-blur-2xl border border-white/20 rounded-2xl overflow-hidden z-50 shadow-[0_20px_60px_rgba(0,0,0,0.85)] max-h-52 overflow-y-auto"
                                 >
                                     {assets.map((asset, i) => (
                                         <button
                                             key={`${asset.contractAddress}-${i}`}
                                             onClick={() => { setSelectedAsset(asset); setSendAmount(''); setShowAssetDropdown(false) }}
-                                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors text-left"
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/10 transition-colors text-left"
                                         >
                                             <div className="relative w-7 h-7 shrink-0">
                                                 <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold text-white/60">
@@ -704,7 +690,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                                 placeholder={selectedChain === 792703809 ? 'Solana address...' : '0x...'}
                                 value={recipientAddress}
                                 onChange={(e) => setRecipientAddress(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-4 pr-20 text-white focus:border-[#6320EE] outline-none transition-all placeholder:text-white/20 text-sm"
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-4 pr-20 text-white focus:border-purple outline-none transition-all placeholder:text-white/20 text-sm"
                         />
                         <button
                             onClick={async () => setRecipientAddress(await navigator.clipboard.readText())}
@@ -721,7 +707,7 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                             placeholder="0.00"
                             value={sendAmount}
                             onChange={(e) => setSendAmount(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-4 pr-28 text-white focus:border-[#6320EE] outline-none transition-all placeholder:text-white/20 font-medium text-sm"
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-4 pr-28 text-white focus:border-purple outline-none transition-all placeholder:text-white/20 font-medium text-sm"
                         />
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                             {selectedAsset && <span className="text-white/30 text-xs font-bold">{selectedAsset.symbol}</span>}
@@ -743,12 +729,12 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
                     <button
                         onClick={handleSend}
                         disabled={!sendAmount || !recipientAddress || isSending || !selectedAsset}
-                        className="w-full disabled:opacity-50 disabled:cursor-not-allowed bg-[#6320EE] hover:bg-[#5219d1] text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-[0_8px_30px_rgb(99,32,238,0.3)]"
+                        className="w-full disabled:opacity-50 disabled:cursor-not-allowed bg-purple hover:bg-purple-hover text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(123,47,247,0.3)]"
                     >
                         {isSending ? (
                             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
-                            <Image src="/send.svg" alt="Send" width={20} height={20} />
+                            <img src="/send.svg" alt="Send" className="w-5 h-5" />
                         )}
                         {isSending ? 'Sending...' : `Send${selectedAsset ? ` ${selectedAsset.symbol}` : ''}`}
                     </button>
@@ -757,279 +743,259 @@ const RightSidebar: FC<RightSidebarProps> = ({ isOpen, onClose }) => {
         </div>
     )
 
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <>
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
-                    />
-
-                    <motion.div
-                        initial={{ x: '100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '100%' }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed inset-y-0 right-0 w-full sm:w-[480px] h-[100dvh] bg-black shadow-2xl z-[201] flex flex-col overflow-hidden"
-                    >
-                        {renderHeader()}
-
-                        {currentView === 'Main' ? (
-                            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden px-4 pb-20">
-                                <div className="space-y-6 pt-4">
-                                    <div className="relative overflow-hidden aspect-[1.8/1] rounded-3xl bg-[#111] border border-white/5 p-8 flex flex-col justify-center">
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 pointer-events-none">
-                                            <Image src="/image.png" alt="" width={160} height={160} className="grayscale brightness-200" />
-                                        </div>
-
-                                        <button
-                                            onClick={() => setShowHistory(true)}
-                                            className="absolute top-3 right-3 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-10"
-                                            title="Transaction History"
-                                        >
-                                            <FileClock className="w-4 h-4 text-white/50" />
-                                        </button>
-
-                                        <div className="relative z-10 flex flex-col gap-1">
-                                            <p className='text-gray-400  text-lg flex items-center gap-2 font-medium'> Avalable balance</p>
-                                            {assetsLoading ? (
-                                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mb-2" />
-                                            ) : (
-                                                <>
-                                                    <h3 className="text-3xl font-bold text-white tracking-tight">
-                                                        ${parseFloat(totalUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </h3>
-                                                    {sellRate > 0 && (
-                                                        <p className="text-gray-400 text-lg flex items-center gap-2 font-medium">
-                                                            <span className="opacity-50">~ ₹</span>
-                                                            {(parseFloat(totalUsd) * sellRate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </p>
-                                                    )}
-                                                </>
-                                            )}
-                                            <p className="text-gray-400 text-xs flex items-center gap-1 font-medium mt-1">
-                                                <span className="opacity-50">Portfolio on</span>
-                                                <span style={{ color: chainConfig.color }}>{chainConfig.name}</span>
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <button
-                                            onClick={() => setCurrentView('Receive')}
-                                            className="flex items-center justify-center gap-2 bg-[#6320EE] hover:bg-[#5219d1] text-white py-4 rounded-xl font-bold text-lg transition-all active:scale-95"
-                                        >
-                                            <div className="w-6 h-6 rounded-full flex items-center justify-center">
-                                                <Image src="/rec.svg" alt="Receive" width={24} height={24} />
-                                            </div>
-                                            Receive
-                                        </button>
-                                        {isEvmChain(selectedChain) || isSolana(selectedChain) ? (
-                                            <button
-                                                onClick={() => setCurrentView('Send')}
-                                                className="flex items-center justify-center gap-2 bg-[#6320EE] hover:bg-[#5219d1] text-white py-4 rounded-xl font-bold text-lg transition-all active:scale-95"
-                                            >
-                                                <div className="w-6 h-6 rounded-full flex items-center justify-center">
-                                                    <Image src="/send.svg" alt="Send" width={20} height={20} />
-                                                </div>
-                                                Send
-                                            </button>
-                                        ) : (
-                                            <div className="flex items-center justify-center gap-2 bg-white/5 border border-white/10 text-white/40 py-4 rounded-xl font-bold text-lg cursor-not-allowed">
-                                                <div className="w-6 h-6 rounded-full flex items-center justify-center opacity-40">
-                                                    <Image src="/send.svg" alt="Send" width={20} height={20} />
-                                                </div>
-                                                View-only
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {isEvmChain(selectedChain) && selectedChain !== 43114 && (
-                                        <div className="flex justify-center">
-                                            <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-green-500/30 bg-green-500/10 text-[#00FF5E] text-xs font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(0,255,94,0.1)]">
-                                                <Flame className="w-4 h-4 fill-current" />
-                                                Gasless Transaction
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <hr className="border-white/5" />
-
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <span className="text-white font-bold">Assets</span>
-                                                <span className="text-white/40 text-xs ml-2">{chainConfig.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-white/40 text-xs">${totalUsd}</span>
-                                                <button
-                                                    onClick={() => refetchAssets()}
-                                                    className="p-1 hover:bg-white/10 rounded-full transition-colors"
-                                                >
-                                                    <RefreshCw className="w-3.5 h-3.5 text-white/40" />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            {assetsLoading && (
-                                                <div className="flex items-center justify-center py-8">
-                                                    <div className="w-5 h-5 border-2 border-[#622DBF] border-t-transparent rounded-full animate-spin" />
-                                                </div>
-                                            )}
-                                            {assetsError && (
-                                                <div className="flex items-center gap-2 py-3 px-3 bg-red-500/10 border border-red-500/20 rounded-xl mb-2">
-                                                    <Info className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                                                    <span className="text-red-400 text-xs">Failed to load assets. Balances may be incomplete.</span>
-                                                </div>
-                                            )}
-                                            {!assetsLoading && !assetsError && assets.length === 0 && (
-                                                <div className="text-center py-6 text-white/30 text-sm">
-                                                    No assets on {chainConfig.name}
-                                                </div>
-                                            )}
-                                            {!assetsLoading && assets.map((asset, i) => (
-                                                <div
-                                                    key={`${asset.contractAddress}-${i}`}
-                                                    className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2.5"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="relative w-8 h-8 shrink-0">
-                                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white/60">
-                                                                {asset.symbol.slice(0, 3).toUpperCase()}
-                                                            </div>
-                                                            {asset.thumbnail && (
-                                                                <img
-                                                                    src={asset.thumbnail}
-                                                                    alt={asset.symbol}
-                                                                    className="absolute inset-0 w-8 h-8 rounded-full object-cover bg-white/5"
-                                                                    onError={(e) => {
-                                                                        const img = e.target as HTMLImageElement;
-                                                                        if (asset.contractAddress && !img.src.includes('1inch')) {
-                                                                            img.src = `https://tokens.1inch.io/${asset.contractAddress.toLowerCase()}.png`;
-                                                                        } else {
-                                                                            img.style.display = 'none';
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-white text-sm font-medium">{asset.symbol}</div>
-                                                            <div className="text-white/40 text-xs">{asset.name}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-white text-sm font-medium">
-                                                            {formatBalance(asset.balance, asset.decimals)}
-                                                        </div>
-                                                        <div className="text-white/40 text-xs">{formatUsd(asset.balanceUsd)}</div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : currentView === 'Receive' ? (
-                            renderReceiveView()
-                        ) : (
-                            renderSendView()
-                        )}
-                    </motion.div>
-
-                    {showHistory && (
-                        <motion.div
-                            key="history-panel"
-                            initial={{ x: '100%' }}
-                            animate={{ x: 0 }}
-                            exit={{ x: '100%' }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed inset-y-0 right-0 w-full sm:w-[480px] h-[100dvh] bg-black shadow-2xl z-[202] flex flex-col overflow-hidden"
+    const renderHistoryView = () => (
+        <div className="flex-1 overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-2 shrink-0 border-b border-white/10 bg-white/[0.02] backdrop-blur-xl">
+                <div className="text-text-secondary text-xs">{chainConfig.name}</div>
+                <div className="flex items-center gap-1">
+                    {(['All', 'Deposit', 'Withdraw'] as const).map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setHistoryTypeFilter(tab)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${historyTypeFilter === tab ? 'bg-purple text-white' : 'text-text-secondary hover:text-white/70 hover:bg-white/5'}`}
                         >
-                            <div className="relative flex items-center bg-white/5 px-4 py-4 shrink-0">
-                                <button onClick={() => setShowHistory(false)} className="absolute left-4 rounded-full p-1 hover:bg-white/10 transition-colors">
-                                    <ArrowLeft className="w-6 h-6 text-white" />
-                                </button>
-                                <h2 className="text-white text-xl font-bold mx-auto">History</h2>
-                            </div>
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
-                            <div className="flex items-center justify-between px-4 py-2 shrink-0 border-b border-white/5">
-                                <div className="text-white/40 text-xs">{chainConfig.name}</div>
-                                <div className="flex items-center gap-1">
-                                    {(['All', 'Deposit', 'Withdraw'] as const).map(tab => (
-                                        <button
-                                            key={tab}
-                                            onClick={() => setHistoryTypeFilter(tab)}
-                                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${historyTypeFilter === tab ? 'bg-[#6320EE] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
-                                        >
-                                            {tab}
-                                        </button>
-                                    ))}
+            <div className="px-4 py-3 space-y-2">
+                {isHistoryLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                        <div className="w-6 h-6 border-2 border-purple border-t-transparent rounded-full animate-spin" />
+                        <p className="text-text-secondary text-xs">Fetching transactions...</p>
+                    </div>
+                ) : historyData.filter(item =>
+                    (historyTypeFilter === 'All' || item.type === historyTypeFilter) &&
+                    (item.chainId === selectedChain || (selectedChain === 792703809 ? item.chainId === 101 : item.chainId === selectedChain))
+                ).length === 0 ? (
+                    <div className="text-center py-12 text-text-secondary text-sm">No transactions found</div>
+                ) : (
+                    historyData
+                        .filter(item =>
+                            (historyTypeFilter === 'All' || item.type === historyTypeFilter) &&
+                            (item.chainId === selectedChain || (selectedChain === 792703809 ? item.chainId === 101 : item.chainId === selectedChain))
+                        )
+                        .map((item, i) => (
+                            <div key={`${item.hash}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/[0.03] border border-white/10 rounded-xl transition-colors bg-white/[0.02]">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative w-9 h-9 shrink-0">
+                                        <div className="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center">
+                                            {item.type === 'Deposit' ? (
+                                                <ArrowDownLeft className="w-4 h-4 text-green-400" />
+                                            ) : item.type === 'Withdraw' ? (
+                                                <ArrowUpRight className="w-4 h-4 text-orange-400" />
+                                            ) : (
+                                                <ExternalLink className="w-4 h-4 text-white/40" />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-white text-sm font-semibold">{item.type}</div>
+                                        <div className="text-text-secondary text-xs">{item.chainName} · {item.date}</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-white text-sm font-medium">{item.amount}</span>
+                                    <a
+                                        href={item.explorerUrl}
+                                        target="_blank" rel="noopener noreferrer"
+                                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5 text-purple" />
+                                    </a>
+                                </div>
+                            </div>
+                        ))
+                )}
+            </div>
+        </div>
+    )
+
+    return (
+        <>
+            {renderHeader()}
+
+            {currentView === 'Main' ? (
+                <div className="flex-1 overflow-y-auto px-4 pb-6">
+                    <div className="space-y-6 pt-4">
+                        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+                            <div
+                                aria-hidden
+                                className="pointer-events-none absolute -top-16 -left-10 w-64 h-64 rounded-full blur-[80px] opacity-40"
+                                style={{
+                                    background:
+                                        "radial-gradient(circle, rgba(123,47,247,0.7) 0%, rgba(123,47,247,0) 70%)",
+                                }}
+                            />
+                            <img
+                                src="/image.png"
+                                alt=""
+                                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-40 h-40 opacity-10 select-none grayscale brightness-200"
+                            />
+
+                            <button
+                                onClick={() => setCurrentView('History')}
+                                className="absolute top-4 right-4 z-10 w-11 h-11 rounded-lg bg-transparent flex items-center justify-center transition hover:bg-white/5"
+                                title="Transaction History"
+                            >
+                                <FileClock className="w-5 h-5 text-white/50" />
+                            </button>
+
+                            <div className="relative z-10 flex flex-col gap-1">
+                                <p className="text-text-secondary text-sm">Available balance</p>
+                                {assetsLoading ? (
+                                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mb-2" />
+                                ) : (
+                                    <>
+                                        <div className="font-heading text-4xl md:text-5xl font-bold text-white leading-none">
+                                            ${parseFloat(totalUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </div>
+                                        {sellRate > 0 && (
+                                            <p className="text-text-secondary text-sm flex items-center gap-2 font-medium mt-1">
+                                                <span className="opacity-50">~ ₹</span>
+                                                {(parseFloat(totalUsd) * sellRate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </p>
+                                        )}
+                                    </>
+                                )}
+                                <p className="text-text-secondary text-xs flex items-center gap-1 font-medium mt-1">
+                                    <span className="opacity-50">Portfolio on</span>
+                                    <span style={{ color: chainConfig.color }}>{chainConfig.name}</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => setCurrentView('Receive')}
+                                className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple to-[#5b1fc9] text-white py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98] shadow-[0_0_20px_rgba(123,47,247,0.45)] hover:shadow-[0_0_28px_rgba(123,47,247,0.7)]"
+                            >
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center">
+                                    <img src="/rec.svg" alt="Receive" className="w-6 h-6" />
+                                </div>
+                                Receive
+                            </button>
+                            {isEvmChain(selectedChain) || isSolana(selectedChain) ? (
+                                <button
+                                    onClick={() => setCurrentView('Send')}
+                                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple to-[#5b1fc9] text-white py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98] shadow-[0_0_20px_rgba(123,47,247,0.45)] hover:shadow-[0_0_28px_rgba(123,47,247,0.7)]"
+                                >
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center">
+                                        <img src="/send.svg" alt="Send" className="w-5 h-5" />
+                                    </div>
+                                    Send
+                                </button>
+                            ) : (
+                                <div className="flex items-center justify-center gap-2 bg-white/5 border border-white/10 text-white/40 py-4 rounded-2xl font-bold text-lg cursor-not-allowed">
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center opacity-40">
+                                        <img src="/send.svg" alt="Send" className="w-5 h-5" />
+                                    </div>
+                                    View-only
+                                </div>
+                            )}
+                        </div>
+
+                        {isEvmChain(selectedChain) && selectedChain !== 43114 && (
+                            <div className="flex justify-center">
+                                <div className="relative overflow-hidden flex items-center gap-2 px-4 py-1.5 rounded-full border bg-green-500/10 text-green-400 text-xs font-bold tracking-[0.15em] uppercase animate-gasless-breathe">
+                                    <Flame className="w-3.5 h-3.5 animate-flame-flicker" />
+                                    <span className="relative z-10">Gasless Transaction</span>
+                                    <span
+                                        aria-hidden
+                                        className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-green-300/40 to-transparent blur-sm animate-gasless-shimmer"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <hr className="border-white/5" />
+
+                        <div className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-4 md:p-5">
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <span className="text-white font-bold">Assets</span>
+                                    <span className="text-text-secondary text-xs ml-2">{chainConfig.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-text-secondary text-xs">${totalUsd}</span>
+                                    <button
+                                        onClick={() => refetchAssets()}
+                                        className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                                    >
+                                        <RefreshCw className="w-3.5 h-3.5 text-text-secondary" />
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden px-4 py-3 space-y-2">
-                                {isHistoryLoading ? (
-                                    <div className="flex flex-col items-center justify-center py-12 gap-3">
-                                        <div className="w-6 h-6 border-2 border-[#6320EE] border-t-transparent rounded-full animate-spin" />
-                                        <p className="text-white/30 text-xs">Fetching transactions...</p>
+                            <div className="space-y-2">
+                                {assetsLoading && (
+                                    <div className="flex items-center justify-center py-8">
+                                        <div className="w-5 h-5 border-2 border-purple border-t-transparent rounded-full animate-spin" />
                                     </div>
-                                ) : historyData.filter(item =>
-                                    (historyTypeFilter === 'All' || item.type === historyTypeFilter) &&
-                                    (item.chainId === selectedChain || (selectedChain === 792703809 ? item.chainId === 101 : item.chainId === selectedChain))
-                                ).length === 0 ? (
-                                    <div className="text-center py-12 text-white/30 text-sm">No transactions found</div>
-                                ) : (
-                                    historyData
-                                        .filter(item =>
-                                            (historyTypeFilter === 'All' || item.type === historyTypeFilter) &&
-                                            (item.chainId === selectedChain || (selectedChain === 792703809 ? item.chainId === 101 : item.chainId === selectedChain))
-                                        )
-                                        .map((item, i) => (
-                                            <div key={`${item.hash}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/5 border border-white/5 rounded-xl transition-colors">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="relative w-9 h-9 shrink-0">
-                                                        <div className="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center">
-                                                            {item.type === 'Deposit' ? (
-                                                                <ArrowDownLeft className="w-4 h-4 text-green-400" />
-                                                            ) : item.type === 'Withdraw' ? (
-                                                                <ArrowUpRight className="w-4 h-4 text-orange-400" />
-                                                            ) : (
-                                                                <ExternalLink className="w-4 h-4 text-white/40" />
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-white text-sm font-semibold">{item.type}</div>
-                                                        <div className="text-white/30 text-xs">{item.chainName} · {item.date}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2.5">
-                                                    <span className="text-white text-sm font-medium">{item.amount}</span>
-                                                    <a
-                                                        href={item.explorerUrl}
-                                                        target="_blank" rel="noopener noreferrer"
-                                                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                                                    >
-                                                        <ExternalLink className="w-3.5 h-3.5 text-[#6320EE]" />
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        ))
                                 )}
+                                {assetsError && (
+                                    <div className="flex items-center gap-2 py-3 px-3 bg-red-500/10 border border-red-500/20 rounded-xl mb-2">
+                                        <Info className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                        <span className="text-red-400 text-xs">Failed to load assets. Balances may be incomplete.</span>
+                                    </div>
+                                )}
+                                {!assetsLoading && !assetsError && assets.length === 0 && (
+                                    <div className="text-center py-6 text-text-secondary text-sm">
+                                        No assets on {chainConfig.name}
+                                    </div>
+                                )}
+                                {!assetsLoading && assets.map((asset, i) => (
+                                    <div
+                                        key={`${asset.contractAddress}-${i}`}
+                                        className="group flex items-center justify-between px-3 py-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-all cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative w-8 h-8 shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white/60">
+                                                    {asset.symbol.slice(0, 3).toUpperCase()}
+                                                </div>
+                                                {asset.thumbnail && (
+                                                    <img
+                                                        src={asset.thumbnail}
+                                                        alt={asset.symbol}
+                                                        className="absolute inset-0 w-8 h-8 rounded-full object-cover bg-white/5"
+                                                        onError={(e) => {
+                                                            const img = e.target as HTMLImageElement;
+                                                            if (asset.contractAddress && !img.src.includes('1inch')) {
+                                                                img.src = `https://tokens.1inch.io/${asset.contractAddress.toLowerCase()}.png`;
+                                                            } else {
+                                                                img.style.display = 'none';
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="leading-tight">
+                                                <div className="text-white font-semibold text-sm">{asset.symbol}</div>
+                                                <div className="text-text-secondary text-xs">{asset.name}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right leading-tight">
+                                            <div className="text-white font-semibold text-sm">
+                                                {formatBalance(asset.balance, asset.decimals)}
+                                            </div>
+                                            <div className="text-text-secondary text-xs">{formatUsd(asset.balanceUsd)}</div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        </motion.div>
-                    )}
-                </>
+                        </div>
+                    </div>
+                </div>
+            ) : currentView === 'Receive' ? (
+                renderReceiveView()
+            ) : currentView === 'Send' ? (
+                renderSendView()
+            ) : (
+                renderHistoryView()
             )}
-        </AnimatePresence>
+        </>
     )
 }
-
-export default RightSidebar
